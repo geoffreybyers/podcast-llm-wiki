@@ -31,9 +31,35 @@ def atomic_write(target: Path, content: str, encoding: str = "utf-8") -> None:
         raise
 
 
-def sanitize_filename(name: str, *, episode_id: str | None = None) -> str:
-    """Sanitize a filename for safe filesystem use.
+_FORBIDDEN = re.compile(r"[/\\:*?\"<>|]")
+_NULLS = re.compile(r"\x00")
 
-    Stub for Task 1.2.
+# Total filename budget excluding extension. POSIX allows 255 but we leave headroom
+# for " - transcription.md" / " - analysis.md" suffixes added by callers.
+MAX_FILENAME_LEN = 200
+
+
+def sanitize_filename(name: str, *, episode_id: str | None = None) -> str:
+    """Make `name` safe to use as a filename component.
+
+    - Replaces path separators and shell-unsafe chars with `-`.
+    - Strips null bytes, leading dots, trailing whitespace/dots.
+    - Truncates to MAX_FILENAME_LEN; if `episode_id` provided, reserves room
+      and appends ` - <episode_id>` so truncated names remain unique.
     """
-    raise NotImplementedError
+    cleaned = _NULLS.sub("", name)
+    cleaned = _FORBIDDEN.sub("-", cleaned)
+    cleaned = cleaned.lstrip(".")
+    cleaned = cleaned.rstrip(" .")
+
+    if episode_id:
+        suffix = f" - {episode_id}"
+        budget = MAX_FILENAME_LEN - len(suffix)
+        if len(cleaned) > budget:
+            cleaned = cleaned[:budget].rstrip(" .") + suffix
+        elif len(cleaned) + len(suffix) > MAX_FILENAME_LEN:
+            cleaned = cleaned[:budget].rstrip(" .") + suffix
+    elif len(cleaned) > MAX_FILENAME_LEN:
+        cleaned = cleaned[:MAX_FILENAME_LEN].rstrip(" .")
+
+    return cleaned
