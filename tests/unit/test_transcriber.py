@@ -80,6 +80,8 @@ class TestRenderTranscriptMarkdown:
         )
         assert "[00:00:00] Speaker 1: Hello." in out
         assert "[00:00:05] Speaker 2: Hi there." in out
+        # Blank line separates YAML frontmatter from body (Obsidian convention).
+        assert "---\n\n[00:00:00]" in out
 
     def test_renders_non_diarized_without_speaker_label(self) -> None:
         result = TranscriptionResult(

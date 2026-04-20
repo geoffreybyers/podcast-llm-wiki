@@ -135,7 +135,7 @@ def render_transcript_markdown(
             body_lines.append(f"[{ts}] {seg.speaker}: {seg.text}")
         else:
             body_lines.append(f"[{ts}] {seg.text}")
-    return "\n".join(fm_lines) + "\n".join(body_lines) + "\n"
+    return "\n".join(fm_lines) + "\n" + "\n".join(body_lines) + "\n"
 
 
 class SherpaOnnxAsr:
