@@ -38,7 +38,12 @@ def test_ingest_command_loads_config(tmp_path: Path, monkeypatch) -> None:
     runner = CliRunner()
     result = runner.invoke(
         app,
-        ["ingest", "--config", str(cfg_path), "--project-root", str(tmp_path)],
+        [
+            "ingest",
+            "--config", str(cfg_path),
+            "--project-root", str(tmp_path),
+            "--skip-preflight",
+        ],
     )
     assert result.exit_code == 0, result.output
     assert called.get("yes") is True

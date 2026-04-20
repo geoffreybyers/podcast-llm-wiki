@@ -10,7 +10,9 @@ import typer
 from podcast_llm.config import load_config
 from podcast_llm.downloader import Downloader
 from podcast_llm.ledger import Ledger
+from podcast_llm.logging_setup import configure_jsonl_logger
 from podcast_llm.pipeline import Pipeline
+from podcast_llm.preflight import run_all
 from podcast_llm.transcriber import (
     PyannoteDiarizer,
     SherpaOnnxAsr,
@@ -72,14 +74,21 @@ def ingest(
         help="Where ONNX model files live.",
     ),
     log_level: str = typer.Option("INFO", "--log-level"),
+    skip_preflight: bool = typer.Option(False, "--skip-preflight"),
 ) -> None:
     """Run Tier 1: download new episodes and transcribe them."""
     logging.basicConfig(
         level=log_level.upper(),
         format="%(asctime)s %(levelname)s %(name)s: %(message)s",
     )
+    today = __import__("datetime").date.today().isoformat()
+    configure_jsonl_logger(project_root / "logs" / f"pipeline-{today}.jsonl")
 
     cfg = load_config(config)
+
+    if not skip_preflight:
+        run_all(vault_paths=[p.vault_path for p in cfg.podcasts])
+
     ledger = Ledger(project_root)
     downloader = Downloader(downloads_root=project_root / "podcasts")
     pipeline = Pipeline(
