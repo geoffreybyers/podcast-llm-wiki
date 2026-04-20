@@ -342,7 +342,11 @@ Each insight = bolded claim + 1-paragraph explanation + [timestamp].
 Ranked by novelty, not order of appearance.
 
 ## Critical Pass
-- **Steelman of strongest argument:** ...
+- **Steelman(s) of the strongest argument(s) (1–3):** When the episode contains
+  multiple distinct theses (panel disagreements, guests making several
+  independent claims), steelman each separately and label by speaker. When the
+  episode has one clear central thesis, just one. Cap at 3 — beyond that,
+  candidates belong in *Key Insights*, not here. Never pad.
 - **Weak claims / unsupported assertions:** ...
 - **Factual claims requiring verification:** [bullet list]
 - **Contradictions with prior episodes (if any):** [[wikilinks]]
@@ -371,7 +375,7 @@ The slash command pulls each podcast's `lens` field from `podcasts.yaml` and pre
 
 Initial lens examples (user's personal config; not committed):
 
-- **All-In** (4-host panel): business strategy, market dynamics, political economy, technology trends. Disagreements ARE the signal. Skeptical of hot takes.
+- **All-In** (4-host panel): business strategy, market dynamics, political economy, technology trends. Disagreements ARE the signal. When panelists hold distinct positions on a topic, steelman each separately in the Critical Pass under the panelist's name. Skeptical of hot takes.
 - **Huberman Lab** (science protocols): mechanism + evidence quality (RCT > observational > animal > anecdote) + dose/timing/context + contraindications. Distinguish clinical advice from speculation.
 - **Modern Wisdom** (advice/psychology): actionable advice + underlying principle + concrete first action. Identify guest contradictions across episodes.
 - **Diary of a CEO** (biography/decisions): formative experiences + counter-intuitive lessons + compounding decisions. Flag polished story vs. genuine struggle.
