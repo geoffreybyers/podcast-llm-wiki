@@ -49,3 +49,39 @@ class TestCopyTranscription:
         assert dest.parent == vault / "raw" / "transcripts"
         assert dest.read_text() == "transcription content"
         assert dest.name.endswith(".md")
+
+
+class TestWriteEpisodePage:
+    def test_writes_episode_with_frontmatter(self, vault: Path) -> None:
+        meta = _episode_meta()
+        w = WikiWriter(vault)
+        page = w.write_episode_page(
+            meta,
+            tldr="Three sentences. About the thesis. Why it matters.",
+            insights_md="- **Insight A:** body [00:01:00]\n- **Insight B:** body [00:05:00]\n",
+            entity_links=["[[Andrew Huberman]]", "[[Stanford University]]"],
+            concept_links=["[[circadian rhythm]]"],
+        )
+        assert page.exists()
+        text = page.read_text()
+        assert text.startswith("---\n")
+        assert "type: episode" in text
+        assert "episode_id: vid1" in text
+        assert "channelTitle: Channel" in text
+        assert "url: https://x.test/vid1" in text
+        assert "transcription_path: /abs/transcription.md" in text
+        assert "analysis_path: /abs/analysis.md" in text
+        assert "## TL;DR" in text
+        assert "Three sentences." in text
+        assert "## Key Insights" in text
+        assert "**Insight A:**" in text
+        assert "## Entities" in text
+        assert "[[Andrew Huberman]]" in text
+        assert "## Concepts" in text
+        assert "[[circadian rhythm]]" in text
+
+    def test_episode_page_path_uses_sanitized_filename(self, vault: Path) -> None:
+        meta = _episode_meta(title="Bad/Slash: Title")
+        w = WikiWriter(vault)
+        page = w.write_episode_page(meta, tldr="x", insights_md="", entity_links=[], concept_links=[])
+        assert "/" not in page.name[:-3]  # excluding ".md"

@@ -43,3 +43,45 @@ class WikiWriter:
         dest = dest_dir / f"{meta.base_filename()}.md"
         shutil.copyfile(source, dest)
         return dest
+
+    def write_episode_page(
+        self,
+        meta: EpisodeMeta,
+        *,
+        tldr: str,
+        insights_md: str,
+        entity_links: list[str],
+        concept_links: list[str],
+    ) -> Path:
+        today = date.today().isoformat()
+        frontmatter = (
+            "---\n"
+            f"title: {meta.channel_title} — {meta.title}\n"
+            f"created: {today}\n"
+            f"updated: {today}\n"
+            "type: episode\n"
+            "tags: [episode]\n"
+            f"episode_id: {meta.episode_id}\n"
+            f"channelTitle: {meta.channel_title}\n"
+            f"publishedAt: {meta.published_at}\n"
+            f"url: {meta.url}\n"
+            f"transcription_path: {meta.transcription_path}\n"
+            f"analysis_path: {meta.analysis_path}\n"
+            "---\n\n"
+        )
+        body = (
+            f"# {meta.channel_title} — {meta.title}\n\n"
+            "## TL;DR\n"
+            f"{tldr.strip()}\n\n"
+            "## Key Insights\n"
+            f"{insights_md.strip()}\n\n"
+            "## Entities\n"
+            + "\n".join(f"- {link}" for link in entity_links)
+            + ("\n\n" if entity_links else "\n")
+            + "## Concepts\n"
+            + "\n".join(f"- {link}" for link in concept_links)
+            + "\n"
+        )
+        page = self.vault / "episodes" / f"{meta.base_filename()}.md"
+        atomic_write(page, frontmatter + body)
+        return page
