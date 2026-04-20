@@ -155,3 +155,34 @@ class TestUpsertConceptPage:
         assert f"[[{meta1.base_filename()}]]" in text
         assert f"[[{meta2.base_filename()}]]" in text
         assert len(list((vault / "concepts").glob("*.md"))) == 1
+
+
+class TestUpdateIndex:
+    def test_adds_episode_under_episodes_section(self, vault: Path) -> None:
+        meta = _episode_meta()
+        w = WikiWriter(vault)
+        w.update_index(
+            new_episodes=[(meta.base_filename(), meta.title)],
+            new_entities=[("Andrew Huberman", "Stanford neuroscientist")],
+            new_concepts=[("circadian rhythm", "24-hour biological cycle")],
+        )
+        idx = (vault / "index.md").read_text()
+        assert f"- [[{meta.base_filename()}]] — {meta.title}" in idx
+        assert "[[Andrew Huberman]] — Stanford neuroscientist" in idx
+        assert "[[circadian rhythm]] — 24-hour biological cycle" in idx
+        # Total pages updated to 3 (1 episode + 1 entity + 1 concept).
+        assert "Total pages: 3" in idx
+
+
+class TestAppendLog:
+    def test_appends_action_with_files_touched(self, vault: Path) -> None:
+        w = WikiWriter(vault)
+        w.append_log(
+            action="analyze",
+            subject="Channel — Episode One",
+            files=[vault / "episodes" / "x.md", vault / "entities" / "y.md"],
+        )
+        log = (vault / "log.md").read_text()
+        assert "analyze | Channel — Episode One" in log
+        assert "x.md" in log
+        assert "y.md" in log

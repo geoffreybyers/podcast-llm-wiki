@@ -176,6 +176,49 @@ class WikiWriter:
         atomic_write(path, frontmatter + body)
         return path
 
+    def update_index(
+        self,
+        *,
+        new_episodes: list[tuple[str, str]] = (),
+        new_entities: list[tuple[str, str]] = (),
+        new_concepts: list[tuple[str, str]] = (),
+    ) -> Path:
+        index_path = self.vault / "index.md"
+        text = index_path.read_text() if index_path.exists() else _DEFAULT_INDEX
+        text = _insert_under_section(text, "Episodes", [
+            f"- [[{name}]] — {summary}" for name, summary in new_episodes
+        ])
+        text = _insert_under_section(text, "Entities", [
+            f"- [[{name}]] — {summary}" for name, summary in new_entities
+        ])
+        text = _insert_under_section(text, "Concepts", [
+            f"- [[{name}]] — {summary}" for name, summary in new_concepts
+        ])
+        text = _bump_index_total(text)
+        text = _replace_index_last_updated(text, date.today().isoformat())
+        atomic_write(index_path, text)
+        return index_path
+
+    def append_log(
+        self,
+        *,
+        action: str,
+        subject: str,
+        files: Iterable[Path],
+    ) -> Path:
+        log_path = self.vault / "log.md"
+        existing = log_path.read_text() if log_path.exists() else "# Wiki Log\n"
+        today = date.today().isoformat()
+        block = [f"\n## [{today}] {action} | {subject}"]
+        for f in files:
+            try:
+                rel = Path(f).relative_to(self.vault)
+            except ValueError:
+                rel = Path(f)
+            block.append(f"- {rel}")
+        atomic_write(log_path, existing.rstrip() + "\n" + "\n".join(block) + "\n")
+        return log_path
+
 
 def _replace_frontmatter_field(text: str, key: str, new_value: str) -> str:
     """Replace `key: <value>` line inside the leading YAML frontmatter block."""
@@ -196,3 +239,52 @@ def _replace_frontmatter_field(text: str, key: str, new_value: str) -> str:
     if not replaced:
         new_lines.append(f"{key}: {new_value}")
     return "---\n" + "\n".join(new_lines) + text[end:]
+
+
+_DEFAULT_INDEX = (
+    "# Wiki Index\n\n"
+    "> Last updated: 1970-01-01 | Total pages: 0\n\n"
+    "## Episodes\n\n## Entities\n\n## Concepts\n\n## Comparisons\n\n## Queries\n"
+)
+
+
+def _insert_under_section(text: str, section: str, lines: list[str]) -> str:
+    if not lines:
+        return text
+    lines = sorted(lines)
+    needle = f"## {section}\n"
+    idx = text.find(needle)
+    if idx == -1:
+        # Section missing — append at end.
+        return text.rstrip() + "\n\n" + needle + "\n".join(lines) + "\n"
+    after_heading = idx + len(needle)
+    # Find next heading (or EOF) to scope insertion to this section.
+    next_heading = text.find("\n## ", after_heading)
+    if next_heading == -1:
+        block = text[after_heading:]
+        head, tail = block, ""
+    else:
+        head = text[after_heading:next_heading + 1]
+        tail = text[next_heading + 1:]
+    # Existing items in the section (lines starting with "- ").
+    existing_items = [ln for ln in head.splitlines() if ln.startswith("- ")]
+    merged = sorted(set(existing_items + lines))
+    new_section = "\n".join(merged) + ("\n" if merged else "")
+    return text[:after_heading] + new_section + ("\n" if tail and not tail.startswith("\n") else "") + tail
+
+
+def _bump_index_total(text: str) -> str:
+    import re as _re
+
+    def repl(m):
+        # Walk all "- [[" lines to count current total.
+        total = sum(1 for line in text.splitlines() if line.startswith("- [["))
+        return f"Total pages: {total}"
+
+    return _re.sub(r"Total pages: \d+", repl, text, count=1)
+
+
+def _replace_index_last_updated(text: str, today: str) -> str:
+    import re as _re
+
+    return _re.sub(r"Last updated: \d{4}-\d{2}-\d{2}", f"Last updated: {today}", text, count=1)
