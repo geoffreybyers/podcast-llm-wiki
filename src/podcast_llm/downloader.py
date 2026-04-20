@@ -74,3 +74,46 @@ class Downloader:
         if max_backfill is not None:
             new = new[:max_backfill]
         return new
+
+    def download_episode(
+        self,
+        episode: EpisodeMetadata,
+        podcast_name: str,
+    ) -> DownloadResult:
+        """Download bestaudio for `episode`, post-process to 16 kHz mono WAV.
+
+        Side effect: writes audio file and `.info.json` sidecar in
+        `<downloads_root>/<podcast_name>/<episode_id>.{wav,info.json}`.
+        Updates the per-podcast yt-dlp download archive so re-runs skip.
+        """
+        podcast_dir = self.downloads_root / podcast_name
+        podcast_dir.mkdir(parents=True, exist_ok=True)
+        archive_path = podcast_dir / ".archive"
+        outtmpl = str(podcast_dir / "%(id)s.%(ext)s")
+
+        opts = {
+            "format": "bestaudio/best",
+            "outtmpl": outtmpl,
+            "writeinfojson": True,
+            "download_archive": str(archive_path),
+            "quiet": True,
+            "noprogress": True,
+            "postprocessors": [
+                {
+                    "key": "FFmpegExtractAudio",
+                    "preferredcodec": "wav",
+                },
+                {
+                    "key": "FFmpegPostProcessor",
+                    "args": ["-ar", "16000", "-ac", "1"],
+                },
+            ],
+        }
+        with YoutubeDL(opts) as ydl:
+            rc = ydl.download([episode.url])
+        if rc != 0:
+            raise RuntimeError(f"yt-dlp exited with code {rc} for {episode.url}")
+
+        audio_path = podcast_dir / f"{episode.episode_id}.wav"
+        info_path = podcast_dir / f"{episode.episode_id}.info.json"
+        return DownloadResult(metadata=episode, audio_path=audio_path, info_json_path=info_path)

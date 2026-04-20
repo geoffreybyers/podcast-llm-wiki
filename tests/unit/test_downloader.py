@@ -102,3 +102,50 @@ class TestFilterNew:
         episodes = [_sample_episode(f"e{i}") for i in range(10)]
         result = d.filter_new(episodes, known_ids=set(), max_backfill=None)
         assert len(result) == 10
+
+
+class TestDownloadEpisode:
+    @patch("podcast_llm.downloader.YoutubeDL")
+    def test_downloads_audio_to_podcast_subdir(
+        self, mock_ydl_cls, tmp_path: Path
+    ) -> None:
+        ep = _sample_episode("vid1", title="Episode One")
+
+        # Pretend yt-dlp wrote files at expected paths.
+        downloads_root = tmp_path / "downloads"
+        podcast_dir = downloads_root / "P"
+        podcast_dir.mkdir(parents=True)
+        audio_path = podcast_dir / "vid1.wav"
+        info_path = podcast_dir / "vid1.info.json"
+        audio_path.write_bytes(b"RIFF")
+        info_path.write_text("{}")
+
+        mock_ydl = MagicMock()
+        mock_ydl.__enter__.return_value = mock_ydl
+        mock_ydl.download.return_value = 0
+        mock_ydl_cls.return_value = mock_ydl
+
+        d = Downloader(downloads_root=downloads_root)
+        result = d.download_episode(ep, podcast_name="P")
+
+        assert isinstance(result, DownloadResult)
+        assert result.audio_path == audio_path
+        assert result.info_json_path == info_path
+
+        # Verify yt-dlp was configured to write to podcast_dir with .info.json sidecar
+        call_opts = mock_ydl_cls.call_args[0][0]
+        assert call_opts["writeinfojson"] is True
+        assert "outtmpl" in call_opts
+        assert str(podcast_dir) in call_opts["outtmpl"]
+
+    @patch("podcast_llm.downloader.YoutubeDL")
+    def test_raises_on_yt_dlp_nonzero_exit(self, mock_ydl_cls, tmp_path: Path) -> None:
+        ep = _sample_episode("vid1")
+        mock_ydl = MagicMock()
+        mock_ydl.__enter__.return_value = mock_ydl
+        mock_ydl.download.return_value = 1
+        mock_ydl_cls.return_value = mock_ydl
+
+        d = Downloader(downloads_root=tmp_path / "downloads")
+        with pytest.raises(RuntimeError, match="yt-dlp"):
+            d.download_episode(ep, podcast_name="P")
