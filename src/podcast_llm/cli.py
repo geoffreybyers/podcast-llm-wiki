@@ -90,7 +90,7 @@ def ingest(
     cfg = load_config(config)
 
     if not skip_preflight:
-        run_all(vault_paths=[p.vault_path for p in cfg.podcasts])
+        run_all(podcasts=cfg.podcasts)
 
     ledger = Ledger(project_root)
     downloader = Downloader(downloads_root=project_root / "podcasts")

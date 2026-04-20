@@ -57,7 +57,7 @@ def _find_schema_template() -> Optional[Path]:
     return None
 
 
-def _render_schema(podcast_name: str, lens: str) -> str:
+def _render_schema(podcast_name: str, lens: str, created_date: str) -> str:
     template_path = _find_schema_template()
     if template_path is None:
         # Last-resort minimal schema if the template isn't available (e.g., installed via pip
@@ -68,7 +68,11 @@ def _render_schema(podcast_name: str, lens: str) -> str:
         )
     else:
         body = template_path.read_text()
-    return body.replace("{{podcast_name}}", podcast_name).replace("{{lens}}", lens or "")
+    return (
+        body.replace("{{podcast_name}}", podcast_name)
+        .replace("{{lens}}", lens or "")
+        .replace("{{created_date}}", created_date)
+    )
 
 
 def create_vault_skeleton(
@@ -91,7 +95,10 @@ def create_vault_skeleton(
 
     schema_path = vault_path / "SCHEMA.md"
     if not schema_path.exists():
-        atomic_write(schema_path, _render_schema(podcast_name or vault_path.name, lens))
+        atomic_write(
+            schema_path,
+            _render_schema(podcast_name or vault_path.name, lens, today),
+        )
 
     index_path = vault_path / "index.md"
     if not index_path.exists():

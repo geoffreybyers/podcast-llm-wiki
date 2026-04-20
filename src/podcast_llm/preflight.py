@@ -2,11 +2,11 @@
 from __future__ import annotations
 
 import logging
-from pathlib import Path
 from typing import Iterable
 
 import yt_dlp
 
+from podcast_llm.config import PodcastConfig
 from podcast_llm.wiki.vault import create_vault_skeleton
 
 log = logging.getLogger(__name__)
@@ -22,12 +22,12 @@ def check_yt_dlp() -> None:
     log.info("yt-dlp version: %s", version)
 
 
-def check_vault_skeletons(vault_paths: Iterable[Path]) -> None:
-    """Ensure each vault directory has the full Karpathy LLM Wiki skeleton."""
-    for path in vault_paths:
-        create_vault_skeleton(path)
+def check_vault_skeletons(podcasts: Iterable[PodcastConfig]) -> None:
+    """Ensure each podcast's vault has the full skeleton with populated SCHEMA.md."""
+    for pod in podcasts:
+        create_vault_skeleton(pod.vault_path, podcast_name=pod.name, lens=pod.lens)
 
 
-def run_all(*, vault_paths: Iterable[Path]) -> None:
+def run_all(*, podcasts: Iterable[PodcastConfig]) -> None:
     check_yt_dlp()
-    check_vault_skeletons(vault_paths)
+    check_vault_skeletons(podcasts)
