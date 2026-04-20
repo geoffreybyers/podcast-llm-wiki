@@ -122,6 +122,21 @@ class TestQueueOps:
         ledger.ensure_initialized()
         assert ledger.queue_pop() is None
 
+    def test_queue_preserves_fifo_order_across_mixed_operations(self, tmp_project: Path) -> None:
+        """Failed episodes don't enqueue; transcribed ones keep insertion order."""
+        ledger = Ledger(tmp_project)
+        ledger.ensure_initialized()
+        rec_a = _sample_record(episode_id="a", title="A")
+        rec_b = _sample_record(episode_id="b", title="B")
+        rec_c = _sample_record(episode_id="c", title="C")
+        ledger.record_downloaded(rec_a)
+        ledger.record_downloaded(rec_c)
+        ledger.record_transcribed("a", "/p/a.md")
+        ledger.record_failed(rec_b, stage="download", error="boom")
+        ledger.record_transcribed("c", "/p/c.md")
+        queue = (tmp_project / "analysis_queue.md").read_text().splitlines()
+        assert queue == ["- /p/a.md", "- /p/c.md"]
+
     def test_queue_remove_specific(self, tmp_project: Path) -> None:
         ledger = Ledger(tmp_project)
         ledger.ensure_initialized()
