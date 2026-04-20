@@ -143,8 +143,9 @@ class FasterWhisperAsr:
 
     faster-whisper has built-in VAD + chunking for long-form audio, which is
     required to transcribe full podcast episodes (whisper's architecture has a
-    hard 30-second decode window). Models are downloaded on first use into
-    `cache_dir` (typically ~/.cache/faster-whisper).
+    hard 30-second decode window). When `cache_dir` is provided, models are
+    downloaded there on first use; otherwise faster-whisper uses its default
+    (~/.cache/huggingface/hub).
     """
 
     def __init__(

@@ -71,7 +71,7 @@ def ingest(
     model_cache_dir: Path = typer.Option(
         Path("~/.cache/faster-whisper").expanduser(),
         "--model-cache-dir",
-        help="Where ONNX model files live.",
+        help="Where faster-whisper model files are cached.",
     ),
     log_level: str = typer.Option("INFO", "--log-level"),
     skip_preflight: bool = typer.Option(False, "--skip-preflight"),
