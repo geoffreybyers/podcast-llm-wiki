@@ -5,6 +5,7 @@ from datetime import datetime, timezone
 from pathlib import Path
 from typing import Optional
 
+import soundfile as sf
 import torch
 
 
@@ -135,3 +136,63 @@ def render_transcript_markdown(
         else:
             body_lines.append(f"[{ts}] {seg.text}")
     return "\n".join(fm_lines) + "\n".join(body_lines) + "\n"
+
+
+class SherpaOnnxAsr:
+    """ASR adapter wrapping sherpa-onnx whisper bindings.
+
+    `model_dir` should point to a directory containing the ONNX model files
+    appropriate for `model_name` (e.g. whisper-base). On first use these are
+    downloaded into ~/.cache/sherpa-onnx by the preflight step.
+    """
+
+    def __init__(self, model_dir: Path, model_name: str, device: str) -> None:
+        import sherpa_onnx
+
+        self.model_name = model_name
+        self.device = device
+        provider = "cuda" if device == "cuda" else "cpu"
+        self._recognizer = sherpa_onnx.OfflineRecognizer.from_whisper(
+            encoder=str(model_dir / f"{model_name}-encoder.onnx"),
+            decoder=str(model_dir / f"{model_name}-decoder.onnx"),
+            tokens=str(model_dir / f"{model_name}-tokens.txt"),
+            provider=provider,
+        )
+
+    def transcribe_file(self, audio_path: Path) -> list[TranscriptSegment]:
+        audio, sample_rate = sf.read(str(audio_path), dtype="float32")
+        if audio.ndim > 1:
+            audio = audio.mean(axis=1)
+        stream = self._recognizer.create_stream()
+        stream.accept_waveform(sample_rate, audio)
+        self._recognizer.decode_stream(stream)
+        # Whisper returns one big result; chunk by punctuation/sentence segmentation
+        # in the integration step. For now, emit a single segment covering the file.
+        text = stream.result.text.strip()
+        duration = len(audio) / float(sample_rate)
+        return [TranscriptSegment(start_sec=0.0, end_sec=duration, speaker=None, text=text)]
+
+
+class PyannoteDiarizer:
+    """Diarization adapter wrapping pyannote.audio."""
+
+    def __init__(self, segmentation_model: str, embedding_model: str, device: str) -> None:
+        from pyannote.audio import Pipeline
+
+        self.pipeline = Pipeline.from_pretrained(
+            "pyannote/speaker-diarization-3.1",
+        )
+        try:
+            import torch as _torch
+
+            self.pipeline.to(_torch.device(device))
+        except Exception:  # noqa: BLE001
+            # Some torch builds lack MPS support for all ops; fall back to CPU silently.
+            pass
+
+    def diarize_file(self, audio_path: Path) -> list[tuple[float, float, str]]:
+        diarization = self.pipeline(str(audio_path))
+        spans: list[tuple[float, float, str]] = []
+        for turn, _track, speaker in diarization.itertracks(yield_label=True):
+            spans.append((float(turn.start), float(turn.end), str(speaker)))
+        return spans
