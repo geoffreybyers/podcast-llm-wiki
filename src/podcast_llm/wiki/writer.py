@@ -85,3 +85,73 @@ class WikiWriter:
         page = self.vault / "episodes" / f"{meta.base_filename()}.md"
         atomic_write(page, frontmatter + body)
         return page
+
+    def _entity_page_path(self, name: str) -> Path:
+        return self.vault / "entities" / f"{sanitize_filename(name)}.md"
+
+    def _concept_page_path(self, name: str) -> Path:
+        return self.vault / "concepts" / f"{sanitize_filename(name)}.md"
+
+    def upsert_entity_page(
+        self,
+        entity: EntityItem,
+        *,
+        episode_meta: EpisodeMeta,
+    ) -> Path:
+        path = self._entity_page_path(entity.name)
+        backlink = f"[[{episode_meta.base_filename()}]]"
+        today = date.today().isoformat()
+
+        if path.exists():
+            existing = path.read_text()
+            # Bump updated date and append a new mention if this episode isn't already linked.
+            existing = _replace_frontmatter_field(existing, "updated", today)
+            if backlink not in existing:
+                appended_block = (
+                    f"\n## Mention in {backlink} (at {entity.timestamp})\n"
+                    f"{entity.context}\n"
+                )
+                existing = existing.rstrip() + "\n" + appended_block
+            atomic_write(path, existing)
+            return path
+
+        frontmatter = (
+            "---\n"
+            f"title: {entity.name}\n"
+            f"created: {today}\n"
+            f"updated: {today}\n"
+            "type: entity\n"
+            f"entity_type: {entity.type}\n"
+            "tags: [entity]\n"
+            "---\n\n"
+        )
+        body = (
+            f"# {entity.name}\n\n"
+            f"**Type:** {entity.type}\n\n"
+            "## Mentions\n"
+            f"## Mention in {backlink} (at {entity.timestamp})\n"
+            f"{entity.context}\n"
+        )
+        atomic_write(path, frontmatter + body)
+        return path
+
+
+def _replace_frontmatter_field(text: str, key: str, new_value: str) -> str:
+    """Replace `key: <value>` line inside the leading YAML frontmatter block."""
+    if not text.startswith("---\n"):
+        return text
+    end = text.find("\n---", 4)
+    if end == -1:
+        return text
+    fm_block = text[4:end]
+    new_lines: list[str] = []
+    replaced = False
+    for line in fm_block.splitlines():
+        if line.startswith(f"{key}:"):
+            new_lines.append(f"{key}: {new_value}")
+            replaced = True
+        else:
+            new_lines.append(line)
+    if not replaced:
+        new_lines.append(f"{key}: {new_value}")
+    return "---\n" + "\n".join(new_lines) + text[end:]

@@ -85,3 +85,42 @@ class TestWriteEpisodePage:
         w = WikiWriter(vault)
         page = w.write_episode_page(meta, tldr="x", insights_md="", entity_links=[], concept_links=[])
         assert "/" not in page.name[:-3]  # excluding ".md"
+
+
+class TestUpsertEntityPage:
+    def test_creates_new_entity_page_with_backlink(self, vault: Path) -> None:
+        meta = _episode_meta()
+        w = WikiWriter(vault)
+        e = EntityItem(
+            name="Andrew Huberman",
+            type="person",
+            context="Stanford neuroscientist hosting the show",
+            timestamp="00:00:30",
+        )
+        path = w.upsert_entity_page(e, episode_meta=meta)
+        text = path.read_text()
+        assert path.parent == vault / "entities"
+        assert text.startswith("---\n")
+        assert "type: entity" in text
+        assert "Andrew Huberman" in text
+        assert "Stanford neuroscientist hosting the show" in text
+        # Backlink to episode page
+        assert f"[[{meta.base_filename()}]]" in text
+
+    def test_appends_to_existing_entity_page(self, vault: Path) -> None:
+        meta1 = _episode_meta(episode_id="ep1", title="One")
+        meta2 = _episode_meta(episode_id="ep2", title="Two")
+        e1 = EntityItem("Andrew Huberman", "person", "Host", "00:00:30")
+        e2 = EntityItem("Andrew Huberman", "person", "Host again", "00:01:00")
+        w = WikiWriter(vault)
+        w.upsert_entity_page(e1, episode_meta=meta1)
+        path = w.upsert_entity_page(e2, episode_meta=meta2)
+        text = path.read_text()
+        # Both episode backlinks present.
+        assert f"[[{meta1.base_filename()}]]" in text
+        assert f"[[{meta2.base_filename()}]]" in text
+        # Single page (not duplicated).
+        pages = list((vault / "entities").glob("*.md"))
+        assert len(pages) == 1
+        # `updated` date present (we only verify the line, not the value).
+        assert "updated:" in text
