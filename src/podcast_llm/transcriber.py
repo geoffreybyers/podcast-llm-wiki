@@ -220,8 +220,15 @@ class PyannoteDiarizer:
             pass
 
     def diarize_file(self, audio_path: Path) -> list[tuple[float, float, str]]:
-        diarization = self.pipeline(str(audio_path))
+        # pyannote 3.x community pipelines return a DiarizeOutput wrapper with
+        # `speaker_diarization` (overlapping) and `exclusive_speaker_diarization`
+        # (non-overlapping) Annotations. Older versions returned the Annotation
+        # directly. Handle both.
+        result = self.pipeline(str(audio_path))
+        annotation = getattr(result, "exclusive_speaker_diarization", None) or getattr(
+            result, "speaker_diarization", result
+        )
         spans: list[tuple[float, float, str]] = []
-        for turn, _track, speaker in diarization.itertracks(yield_label=True):
+        for turn, _track, speaker in annotation.itertracks(yield_label=True):
             spans.append((float(turn.start), float(turn.end), str(speaker)))
         return spans
