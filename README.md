@@ -55,15 +55,24 @@ cp podcasts.yaml.example podcasts.yaml
 # edit podcasts.yaml with your playlists
 ```
 
-### HuggingFace token (only if you enable diarization)
+### HuggingFace access (only if you enable diarization)
 
-The `pyannote/speaker-diarization-3.1` model is gated and requires a token.
-Skip this step if you're running with `diarization: false` — transcription
-with faster-whisper does not need a token.
+Skip this section if you're running with `diarization: false` — transcription
+with faster-whisper does not need a HuggingFace token.
+
+The pyannote diarization pipeline loads **three** separate gated repositories.
+You must accept the license on each (same HF account). Metadata fetches
+succeed the instant you click "Accept"; actual weight downloads unlock a few
+seconds later.
 
 1. Create an account at https://huggingface.co/.
-2. Visit https://huggingface.co/pyannote/speaker-diarization-3.1 and accept the terms.
-3. Generate a token at https://huggingface.co/settings/tokens.
+2. Accept the license on each of these (follow the link, click "Agree and
+   access"; fill the contact form if shown):
+   - https://huggingface.co/pyannote/speaker-diarization-3.1 — the pipeline
+   - https://huggingface.co/pyannote/segmentation-3.0 — segmentation backbone
+   - https://huggingface.co/pyannote/speaker-diarization-community-1 —
+     speaker embedding + PLDA weights
+3. Generate a read-scope token at https://huggingface.co/settings/tokens.
 4. Put it in a `.env` file at the repo root:
 
    ```bash
@@ -73,6 +82,11 @@ with faster-whisper does not need a token.
 
    `.env` is gitignored. `podcast-llm` loads it automatically on startup, so
    the same file works from an interactive shell and from cron.
+
+Why three? pyannote's `speaker-diarization-3.1` pipeline delegates to a
+separate segmentation model and a separate embedding/PLDA model; each is a
+distinct HF repo with its own license prompt. If you skip any, the pipeline
+crashes with `GatedRepoError` on first use.
 
 ### First run (smoke test on one episode)
 
@@ -185,7 +199,18 @@ See `docs/wiki-schema-template.md` for the per-vault `SCHEMA.md` template.
 0 * * * * cd /path/to/podcast-llm && /usr/bin/python -m podcast_llm ingest >> logs/cron.log 2>&1
 ```
 
-### Multi-GPU users (planned)
+### Multi-GPU hosts
+
+If your box has multiple GPUs, **set `CUDA_DEVICE_ORDER=PCI_BUS_ID`** in your
+shell rc or service unit file. CUDA's default is `FASTEST_FIRST`, which can
+reorder devices so that `CUDA_VISIBLE_DEVICES=2` does not land on the card
+`nvidia-smi` calls "GPU 2". Setting `PCI_BUS_ID` aligns CUDA enumeration
+with `nvidia-smi`, which is what you almost always want.
+
+```bash
+# ~/.zshrc or ~/.bashrc
+export CUDA_DEVICE_ORDER=PCI_BUS_ID
+```
 
 Multi-worker parallelism (`--workers N` with per-GPU locks) is planned but not
 yet implemented. Current runtime is single-worker. Track progress in the
