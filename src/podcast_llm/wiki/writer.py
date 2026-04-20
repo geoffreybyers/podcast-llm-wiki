@@ -38,6 +38,9 @@ class WikiWriter:
         self.vault = Path(vault_path)
 
     def copy_transcription(self, source: Path, meta: EpisodeMeta) -> Path:
+        # Vault copy uses `base_filename.md` (no " - transcription" suffix the
+        # pipeline adds under podcasts/<pod>/transcriptions/). Intentional: the
+        # vault is its own namespace and filenames here back-link to episode pages.
         dest_dir = self.vault / "raw" / "transcripts"
         dest_dir.mkdir(parents=True, exist_ok=True)
         dest = dest_dir / f"{meta.base_filename()}.md"
