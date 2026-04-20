@@ -55,15 +55,24 @@ cp podcasts.yaml.example podcasts.yaml
 # edit podcasts.yaml with your playlists
 ```
 
-### HuggingFace token (for pyannote diarization)
+### HuggingFace token (only if you enable diarization)
 
-The diarization model is gated on HuggingFace and requires accepting the
-license once:
+The `pyannote/speaker-diarization-3.1` model is gated and requires a token.
+Skip this step if you're running with `diarization: false` — transcription
+with faster-whisper does not need a token.
 
 1. Create an account at https://huggingface.co/.
 2. Visit https://huggingface.co/pyannote/speaker-diarization-3.1 and accept the terms.
 3. Generate a token at https://huggingface.co/settings/tokens.
-4. `huggingface-cli login` and paste the token.
+4. Put it in a `.env` file at the repo root:
+
+   ```bash
+   cp .env.example .env
+   # then edit .env and paste your token after HF_TOKEN=
+   ```
+
+   `.env` is gitignored. `podcast-llm` loads it automatically on startup, so
+   the same file works from an interactive shell and from cron.
 
 ### First run (smoke test on one episode)
 

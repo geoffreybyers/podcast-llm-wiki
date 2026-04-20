@@ -6,6 +6,11 @@ from pathlib import Path
 from typing import Optional
 
 import typer
+from dotenv import load_dotenv
+
+# Load secrets (HF_TOKEN, future API keys) from .env at project root, if present.
+# Does nothing when the file is absent; never overwrites existing env vars.
+load_dotenv()
 
 from podcast_llm.config import load_config
 from podcast_llm.downloader import Downloader

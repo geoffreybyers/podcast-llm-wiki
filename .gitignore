@@ -1,5 +1,6 @@
 # Personal config and runtime state (per spec §8)
 podcasts.yaml
+.env
 collected.md
 analysis_queue.md
 logs/
