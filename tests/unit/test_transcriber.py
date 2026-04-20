@@ -190,11 +190,39 @@ class TestFasterWhisperAsr:
         assert call_kwargs.get("vad_filter") is True
         assert call_kwargs.get("beam_size") == 5
 
+    @patch("podcast_llm.transcriber.ctranslate2")
     @patch("podcast_llm.transcriber.WhisperModel")
-    def test_compute_type_cpu_maps_to_int8(self, mock_model_cls) -> None:
+    def test_cpu_picks_int8_when_supported(self, mock_model_cls, mock_ct2) -> None:
+        mock_ct2.get_supported_compute_types.return_value = {"int8", "int8_float32", "float32"}
         FasterWhisperAsr(model_name="small.en", device="cpu")
 
         mock_model_cls.assert_called_once()
         call_kwargs = mock_model_cls.call_args.kwargs
         assert call_kwargs.get("compute_type") == "int8"
         assert call_kwargs.get("device") == "cpu"
+
+    @patch("podcast_llm.transcriber.ctranslate2")
+    @patch("podcast_llm.transcriber.WhisperModel")
+    def test_cuda_prefers_float16_when_supported(self, mock_model_cls, mock_ct2) -> None:
+        mock_ct2.get_supported_compute_types.return_value = {
+            "float32",
+            "float16",
+            "int8_float16",
+            "int8",
+        }
+        FasterWhisperAsr(model_name="small.en", device="cuda")
+
+        call_kwargs = mock_model_cls.call_args.kwargs
+        assert call_kwargs.get("compute_type") == "float16"
+        assert call_kwargs.get("device") == "cuda"
+
+    @patch("podcast_llm.transcriber.ctranslate2")
+    @patch("podcast_llm.transcriber.WhisperModel")
+    def test_cuda_falls_back_when_float16_unavailable(self, mock_model_cls, mock_ct2) -> None:
+        # Mimics ctranslate2 4.7 on CUDA-13 driver: no float16 kernels.
+        mock_ct2.get_supported_compute_types.return_value = {"float32", "int8_float32", "int8"}
+        FasterWhisperAsr(model_name="small.en", device="cuda")
+
+        call_kwargs = mock_model_cls.call_args.kwargs
+        assert call_kwargs.get("compute_type") == "int8_float32"
+        assert call_kwargs.get("device") == "cuda"

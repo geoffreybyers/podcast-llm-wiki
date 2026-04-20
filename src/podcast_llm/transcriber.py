@@ -5,8 +5,29 @@ from datetime import datetime, timezone
 from pathlib import Path
 from typing import Optional
 
+import ctranslate2
 import torch
 from faster_whisper import WhisperModel
+
+
+_CUDA_COMPUTE_TYPE_PREFERENCE = ("float16", "int8_float16", "int8_float32", "float32")
+_CPU_COMPUTE_TYPE_PREFERENCE = ("int8", "int8_float32", "float32")
+
+
+def _pick_compute_type(device: str) -> str:
+    """Pick the fastest compute_type supported by the installed ctranslate2 build.
+
+    ctranslate2 wheels are compiled against specific CUDA versions; on mismatched
+    driver/runtime combos some precisions (notably float16 on Turing) are absent
+    even when the GPU hardware supports them. Query the runtime directly instead
+    of hardcoding.
+    """
+    supported = set(ctranslate2.get_supported_compute_types(device, 0))
+    pref = _CUDA_COMPUTE_TYPE_PREFERENCE if device == "cuda" else _CPU_COMPUTE_TYPE_PREFERENCE
+    for ct in pref:
+        if ct in supported:
+            return ct
+    return "float32"
 
 
 @dataclass
@@ -158,7 +179,7 @@ class FasterWhisperAsr:
         self.device = device
         # faster-whisper has no mps backend; fall back to cpu silently.
         actual_device = "cuda" if device == "cuda" else "cpu"
-        compute_type = "float16" if device == "cuda" else "int8"
+        compute_type = _pick_compute_type(actual_device)
         kwargs = {"device": actual_device, "compute_type": compute_type}
         if cache_dir is not None:
             kwargs["download_root"] = str(cache_dir)
