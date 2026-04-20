@@ -1,0 +1,37 @@
+# podcasts.yaml.example
+#
+# Copy this file to `podcasts.yaml` and edit. The real file is gitignored.
+#
+# `defaults` apply to every podcast unless overridden in the per-podcast entry.
+# See README.md for full configuration reference.
+
+defaults:
+  # Where per-podcast Obsidian vaults live (one directory per podcast).
+  vault_root: ~/obsidian
+
+  # First-run cap: number of most-recent episodes to backfill per playlist.
+  # After the first run, only episodes added after the baseline are processed.
+  max_backfill: 20
+
+  # faster-whisper STT model. `small.en` is the recommended default: ~460MB,
+  # much better accuracy than `base.en` at modest extra CPU cost. Other options:
+  # `base.en` (faster, lower quality), `medium.en`, `large-v3` (needs GPU).
+  stt_model: small.en
+
+  # Diarization (speaker labeling) via pyannote.
+  diarization: true
+  diarization_segmentation: pyannote-segmentation-3.0
+  diarization_embedding: 3d-speaker
+
+podcasts:
+  - name: "Example Podcast"
+    playlist_url: "https://www.youtube.com/playlist?list=PLxxxxxxxxxxxxxxxxxxxx"
+    # vault_path: defaults to {vault_root}/{name}; uncomment to override.
+    # vault_path: /custom/path/to/vault
+    lens: |
+      Frame insights as actionable lessons relevant to this podcast's domain.
+      Identify recurring themes and contradictions with prior episodes.
+      Note when claims are well-supported vs. speculative.
+    # Per-podcast model overrides (uncomment to change defaults):
+    # stt_model: medium.en
+    # diarization: false

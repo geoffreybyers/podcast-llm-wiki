@@ -1,0 +1,11 @@
+defaults:
+  vault_root: ~/obsidian
+  max_backfill: 5
+  stt_model: whisper-base
+  diarization: true
+
+podcasts:
+  - name: "Test Podcast"
+    playlist_url: "https://www.youtube.com/playlist?list=ABC"
+    lens: |
+      Test analytical lens.
