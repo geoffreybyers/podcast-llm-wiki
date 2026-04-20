@@ -70,3 +70,35 @@ class TestEnumeratePlaylist:
         d = Downloader(downloads_root=Path("/tmp/dl"))
         episodes = d.enumerate_playlist("https://youtube.com/playlist?list=ABC")
         assert episodes == []
+
+
+def _sample_episode(eid: str, title: str = "T") -> EpisodeMetadata:
+    return EpisodeMetadata(
+        episode_id=eid,
+        title=title,
+        channel_title="C",
+        published_at="2026-01-01",
+        url=f"https://youtube.com/watch?v={eid}",
+    )
+
+
+class TestFilterNew:
+    def test_filters_out_known_ids(self) -> None:
+        d = Downloader(downloads_root=Path("/tmp/dl"))
+        episodes = [_sample_episode("a"), _sample_episode("b"), _sample_episode("c")]
+        result = d.filter_new(episodes, known_ids={"b"})
+        assert [e.episode_id for e in result] == ["a", "c"]
+
+    def test_caps_at_max_backfill(self) -> None:
+        d = Downloader(downloads_root=Path("/tmp/dl"))
+        episodes = [_sample_episode(f"e{i}") for i in range(10)]
+        result = d.filter_new(episodes, known_ids=set(), max_backfill=3)
+        assert len(result) == 3
+        # Caps from the front (most recent first if caller passed sorted-newest-first).
+        assert [e.episode_id for e in result] == ["e0", "e1", "e2"]
+
+    def test_no_cap_when_max_backfill_none(self) -> None:
+        d = Downloader(downloads_root=Path("/tmp/dl"))
+        episodes = [_sample_episode(f"e{i}") for i in range(10)]
+        result = d.filter_new(episodes, known_ids=set(), max_backfill=None)
+        assert len(result) == 10

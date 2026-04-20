@@ -62,3 +62,15 @@ class Downloader:
                 )
             )
         return results
+
+    def filter_new(
+        self,
+        episodes: list[EpisodeMetadata],
+        known_ids: set[str],
+        max_backfill: Optional[int] = None,
+    ) -> list[EpisodeMetadata]:
+        """Drop episodes already in `known_ids`. Cap total at `max_backfill`."""
+        new = [e for e in episodes if e.episode_id not in known_ids]
+        if max_backfill is not None:
+            new = new[:max_backfill]
+        return new
