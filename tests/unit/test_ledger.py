@@ -26,3 +26,108 @@ class TestLedgerInit:
         ledger.ensure_initialized()
         # Just verify no exception and files remain.
         assert (tmp_project / "collected.md").exists()
+
+
+def _sample_record(**overrides) -> EpisodeRecord:
+    base = dict(
+        podcast="P",
+        channel_title="Channel",
+        title="Title",
+        published_at="2026-04-20",
+        url="https://youtube.com/watch?v=abc",
+        episode_id="abc",
+    )
+    base.update(overrides)
+    return EpisodeRecord(**base)
+
+
+class TestLedgerRecord:
+    def test_record_downloaded_appends_row(self, tmp_project: Path) -> None:
+        ledger = Ledger(tmp_project)
+        ledger.ensure_initialized()
+        ledger.record_downloaded(_sample_record())
+        text = (tmp_project / "collected.md").read_text()
+        assert "| P | Channel | Title |" in text
+        assert "downloaded" in text
+
+    def test_record_transcribed_updates_existing_row(self, tmp_project: Path) -> None:
+        ledger = Ledger(tmp_project)
+        ledger.ensure_initialized()
+        ledger.record_downloaded(_sample_record())
+        ledger.record_transcribed("abc", "/abs/path/to/transcription.md")
+        text = (tmp_project / "collected.md").read_text()
+        assert "transcribed" in text
+        assert "/abs/path/to/transcription.md" not in text  # path lives in queue, not table
+
+    def test_record_transcribed_appends_to_queue(self, tmp_project: Path) -> None:
+        ledger = Ledger(tmp_project)
+        ledger.ensure_initialized()
+        ledger.record_downloaded(_sample_record())
+        ledger.record_transcribed("abc", "/abs/path/to/transcription.md")
+        queue = (tmp_project / "analysis_queue.md").read_text()
+        assert "/abs/path/to/transcription.md" in queue
+
+    def test_record_analyzed_updates_row_and_pops_queue(self, tmp_project: Path) -> None:
+        ledger = Ledger(tmp_project)
+        ledger.ensure_initialized()
+        ledger.record_downloaded(_sample_record())
+        ledger.record_transcribed("abc", "/p/t.md")
+        ledger.record_analyzed("abc", "/p/t.md")
+        text = (tmp_project / "collected.md").read_text()
+        queue = (tmp_project / "analysis_queue.md").read_text()
+        assert "analyzed" in text
+        assert "/p/t.md" not in queue
+
+    def test_record_failed_records_error(self, tmp_project: Path) -> None:
+        ledger = Ledger(tmp_project)
+        ledger.ensure_initialized()
+        ledger.record_failed(
+            _sample_record(),
+            stage="download",
+            error="HTTP 403",
+        )
+        text = (tmp_project / "collected.md").read_text()
+        assert "download_failed" in text
+        assert "HTTP 403" in text
+
+    def test_is_known_episode(self, tmp_project: Path) -> None:
+        ledger = Ledger(tmp_project)
+        ledger.ensure_initialized()
+        assert ledger.is_known_episode("abc") is False
+        ledger.record_downloaded(_sample_record())
+        assert ledger.is_known_episode("abc") is True
+
+    def test_known_episode_ids(self, tmp_project: Path) -> None:
+        ledger = Ledger(tmp_project)
+        ledger.ensure_initialized()
+        ledger.record_downloaded(_sample_record(episode_id="a"))
+        ledger.record_downloaded(_sample_record(episode_id="b", title="T2"))
+        assert ledger.known_episode_ids() == {"a", "b"}
+
+
+class TestQueueOps:
+    def test_queue_peek_and_pop(self, tmp_project: Path) -> None:
+        ledger = Ledger(tmp_project)
+        ledger.ensure_initialized()
+        ledger.record_downloaded(_sample_record(episode_id="a"))
+        ledger.record_downloaded(_sample_record(episode_id="b", title="T2"))
+        ledger.record_transcribed("a", "/p/a.md")
+        ledger.record_transcribed("b", "/p/b.md")
+        assert ledger.queue_peek() == "/p/a.md"
+        assert ledger.queue_pop() == "/p/a.md"
+        assert ledger.queue_peek() == "/p/b.md"
+
+    def test_queue_pop_empty_returns_none(self, tmp_project: Path) -> None:
+        ledger = Ledger(tmp_project)
+        ledger.ensure_initialized()
+        assert ledger.queue_pop() is None
+
+    def test_queue_remove_specific(self, tmp_project: Path) -> None:
+        ledger = Ledger(tmp_project)
+        ledger.ensure_initialized()
+        ledger.record_downloaded(_sample_record(episode_id="a"))
+        ledger.record_downloaded(_sample_record(episode_id="b", title="T2"))
+        ledger.record_transcribed("a", "/p/a.md")
+        ledger.record_transcribed("b", "/p/b.md")
+        ledger.queue_remove("/p/a.md")
+        assert ledger.queue_peek() == "/p/b.md"
