@@ -13,9 +13,10 @@ defaults:
   # After the first run, only episodes added after the baseline are processed.
   max_backfill: 20
 
-  # sherpa-onnx STT model. `whisper-base` is a CPU-friendly default.
-  # Upgrade to `whisper-medium` or `whisper-large-v3` if you have a GPU.
-  stt_model: whisper-base
+  # faster-whisper STT model. `small.en` is the recommended default: ~460MB,
+  # much better accuracy than `base.en` at modest extra CPU cost. Other options:
+  # `base.en` (faster, lower quality), `medium.en`, `large-v3` (needs GPU).
+  stt_model: small.en
 
   # Diarization (speaker labeling) via pyannote.
   diarization: true
@@ -32,5 +33,5 @@ podcasts:
       Identify recurring themes and contradictions with prior episodes.
       Note when claims are well-supported vs. speculative.
     # Per-podcast model overrides (uncomment to change defaults):
-    # stt_model: whisper-medium
+    # stt_model: medium.en
     # diarization: false

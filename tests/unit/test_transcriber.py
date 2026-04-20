@@ -1,11 +1,13 @@
 from __future__ import annotations
 
 from pathlib import Path
+from types import SimpleNamespace
 from unittest.mock import MagicMock, patch
 
 import pytest
 
 from podcast_llm.transcriber import (
+    FasterWhisperAsr,
     TranscriptSegment,
     TranscriptionResult,
     detect_device,
@@ -154,3 +156,45 @@ class TestTranscriberTranscribe:
         assert result.diarization is False
         assert result.segments[0].speaker is None
         diar_engine.diarize_file.assert_not_called()
+
+
+class TestFasterWhisperAsr:
+    @patch("podcast_llm.transcriber.WhisperModel")
+    def test_transcribe_file_returns_segments(self, mock_model_cls) -> None:
+        mock_model = MagicMock()
+        mock_segments = iter(
+            [
+                SimpleNamespace(start=0.0, end=5.0, text=" hello "),
+                SimpleNamespace(start=5.0, end=10.0, text="world"),
+            ]
+        )
+        mock_info = SimpleNamespace(language="en")
+        mock_model.transcribe.return_value = (mock_segments, mock_info)
+        mock_model_cls.return_value = mock_model
+
+        asr = FasterWhisperAsr(model_name="small.en", device="cpu")
+        segments = asr.transcribe_file(Path("/tmp/fake.wav"))
+
+        assert len(segments) == 2
+        assert segments[0].start_sec == 0.0
+        assert segments[0].end_sec == 5.0
+        assert segments[0].text == "hello"
+        assert segments[0].speaker is None
+        assert segments[1].start_sec == 5.0
+        assert segments[1].end_sec == 10.0
+        assert segments[1].text == "world"
+        assert segments[1].speaker is None
+
+        mock_model.transcribe.assert_called_once()
+        call_kwargs = mock_model.transcribe.call_args.kwargs
+        assert call_kwargs.get("vad_filter") is True
+        assert call_kwargs.get("beam_size") == 5
+
+    @patch("podcast_llm.transcriber.WhisperModel")
+    def test_compute_type_cpu_maps_to_int8(self, mock_model_cls) -> None:
+        FasterWhisperAsr(model_name="small.en", device="cpu")
+
+        mock_model_cls.assert_called_once()
+        call_kwargs = mock_model_cls.call_args.kwargs
+        assert call_kwargs.get("compute_type") == "int8"
+        assert call_kwargs.get("device") == "cpu"

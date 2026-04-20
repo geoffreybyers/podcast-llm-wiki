@@ -8,7 +8,7 @@ inside an Obsidian vault.
 
 ```
 ┌──────────── TIER 1: AUTOMATED (cron-able, no LLM) ────────────┐
-│  yt-dlp ──► audio ──► sherpa-onnx + pyannote ──► diarized .md │
+│  yt-dlp ──► audio ──► faster-whisper + pyannote ──► diarized .md │
 │                                                                │
 │  Output: transcription + collected.md + analysis_queue.md      │
 └────────────────────────────────────────────────────────────────┘
@@ -101,7 +101,7 @@ See `podcasts.yaml.example` for the annotated schema. Top-level structure:
 defaults:
   vault_root: ~/obsidian       # where vaults are created
   max_backfill: 20             # episodes to backfill on first run
-  stt_model: whisper-base      # sherpa-onnx model
+  stt_model: small.en          # faster-whisper model
   diarization: true            # pyannote diarization on/off
   diarization_segmentation: pyannote-segmentation-3.0
   diarization_embedding: 3d-speaker

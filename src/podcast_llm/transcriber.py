@@ -5,8 +5,8 @@ from datetime import datetime, timezone
 from pathlib import Path
 from typing import Optional
 
-import soundfile as sf
 import torch
+from faster_whisper import WhisperModel
 
 
 @dataclass
@@ -44,7 +44,7 @@ def _format_timestamp(seconds: float) -> str:
 class Transcriber:
     """Orchestrates ASR + (optional) diarization to produce a TranscriptionResult.
 
-    The actual engine adapters (sherpa-onnx for ASR, pyannote for diarization)
+    The actual engine adapters (faster-whisper for ASR, pyannote for diarization)
     are injected so this class is unit-testable without real models. Concrete
     adapters are constructed in `pipeline.py` from the per-podcast config.
     """
@@ -138,39 +138,46 @@ def render_transcript_markdown(
     return "\n".join(fm_lines) + "\n" + "\n".join(body_lines) + "\n"
 
 
-class SherpaOnnxAsr:
-    """ASR adapter wrapping sherpa-onnx whisper bindings.
+class FasterWhisperAsr:
+    """ASR adapter wrapping faster-whisper (CTranslate2).
 
-    `model_dir` should point to a directory containing the ONNX model files
-    appropriate for `model_name` (e.g. whisper-base). On first use these are
-    downloaded into ~/.cache/sherpa-onnx by the preflight step.
+    faster-whisper has built-in VAD + chunking for long-form audio, which is
+    required to transcribe full podcast episodes (whisper's architecture has a
+    hard 30-second decode window). Models are downloaded on first use into
+    `cache_dir` (typically ~/.cache/faster-whisper).
     """
 
-    def __init__(self, model_dir: Path, model_name: str, device: str) -> None:
-        import sherpa_onnx
-
+    def __init__(
+        self,
+        model_name: str,
+        device: str,
+        cache_dir: Optional[Path] = None,
+    ) -> None:
         self.model_name = model_name
         self.device = device
-        provider = "cuda" if device == "cuda" else "cpu"
-        self._recognizer = sherpa_onnx.OfflineRecognizer.from_whisper(
-            encoder=str(model_dir / f"{model_name}-encoder.onnx"),
-            decoder=str(model_dir / f"{model_name}-decoder.onnx"),
-            tokens=str(model_dir / f"{model_name}-tokens.txt"),
-            provider=provider,
-        )
+        # faster-whisper has no mps backend; fall back to cpu silently.
+        actual_device = "cuda" if device == "cuda" else "cpu"
+        compute_type = "float16" if device == "cuda" else "int8"
+        kwargs = {"device": actual_device, "compute_type": compute_type}
+        if cache_dir is not None:
+            kwargs["download_root"] = str(cache_dir)
+        self._model = WhisperModel(model_name, **kwargs)
 
     def transcribe_file(self, audio_path: Path) -> list[TranscriptSegment]:
-        audio, sample_rate = sf.read(str(audio_path), dtype="float32")
-        if audio.ndim > 1:
-            audio = audio.mean(axis=1)
-        stream = self._recognizer.create_stream()
-        stream.accept_waveform(sample_rate, audio)
-        self._recognizer.decode_stream(stream)
-        # Whisper returns one big result; chunk by punctuation/sentence segmentation
-        # in the integration step. For now, emit a single segment covering the file.
-        text = stream.result.text.strip()
-        duration = len(audio) / float(sample_rate)
-        return [TranscriptSegment(start_sec=0.0, end_sec=duration, speaker=None, text=text)]
+        segments_iter, _info = self._model.transcribe(
+            str(audio_path), vad_filter=True, beam_size=5
+        )
+        segments: list[TranscriptSegment] = []
+        for seg in segments_iter:
+            segments.append(
+                TranscriptSegment(
+                    start_sec=seg.start,
+                    end_sec=seg.end,
+                    speaker=None,
+                    text=seg.text.strip(),
+                )
+            )
+        return segments
 
 
 class PyannoteDiarizer:

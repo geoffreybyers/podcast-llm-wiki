@@ -14,8 +14,8 @@ from podcast_llm.logging_setup import configure_jsonl_logger
 from podcast_llm.pipeline import Pipeline
 from podcast_llm.preflight import run_all
 from podcast_llm.transcriber import (
+    FasterWhisperAsr,
     PyannoteDiarizer,
-    SherpaOnnxAsr,
     Transcriber,
     detect_device,
 )
@@ -33,10 +33,10 @@ def _build_transcriber_factory(model_cache_dir: Path):
     device = detect_device()
 
     def factory(pod):
-        asr = SherpaOnnxAsr(
-            model_dir=model_cache_dir / pod.stt_model,
+        asr = FasterWhisperAsr(
             model_name=pod.stt_model,
             device=device,
+            cache_dir=model_cache_dir,
         )
         diar = (
             PyannoteDiarizer(
@@ -69,7 +69,7 @@ def ingest(
         None, "--podcast", help="Process only this podcast (by name)."
     ),
     model_cache_dir: Path = typer.Option(
-        Path("~/.cache/sherpa-onnx").expanduser(),
+        Path("~/.cache/faster-whisper").expanduser(),
         "--model-cache-dir",
         help="Where ONNX model files live.",
     ),
