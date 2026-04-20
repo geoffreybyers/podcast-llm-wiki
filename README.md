@@ -68,12 +68,13 @@ license once:
 ### First run (smoke test on one episode)
 
 ```bash
-python -m podcast_llm ingest --limit 1
+python -m podcast_llm ingest --limit 1 --podcast "Your Podcast Name"
 ```
 
-This downloads the most recent episode of the first podcast in your config,
-transcribes it (slow on CPU; ~real-time on a modest GPU), and adds it to
-`collected.md` and `analysis_queue.md`.
+`--limit 1` caps each podcast at one new episode per run. Combined with
+`--podcast` (which scopes the run to a single entry from `podcasts.yaml`),
+this downloads exactly one episode, transcribes it (slow on CPU; ~real-time
+on a modest GPU), and adds it to `collected.md` and `analysis_queue.md`.
 
 ### Analyze in Claude Code
 
@@ -175,15 +176,11 @@ See `docs/wiki-schema-template.md` for the per-vault `SCHEMA.md` template.
 0 * * * * cd /path/to/podcast-llm && /usr/bin/python -m podcast_llm ingest >> logs/cron.log 2>&1
 ```
 
-### Multi-GPU users (experimental)
+### Multi-GPU users (planned)
 
-```bash
-python -m podcast_llm ingest --workers 3
-```
-
-This requires N independent CUDA devices and is unsupported. Each worker
-takes a `gpu_lock_<id>.lock` file before claiming a GPU. Most users should
-leave the default of 1 worker.
+Multi-worker parallelism (`--workers N` with per-GPU locks) is planned but not
+yet implemented. Current runtime is single-worker. Track progress in the
+roadmap below.
 
 ### Recovering from failures
 

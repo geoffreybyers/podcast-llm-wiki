@@ -75,6 +75,9 @@ def ingest(
     ),
     log_level: str = typer.Option("INFO", "--log-level"),
     skip_preflight: bool = typer.Option(False, "--skip-preflight"),
+    limit: Optional[int] = typer.Option(
+        None, "--limit", help="Process at most N new episodes per podcast (smoke-test friendly)."
+    ),
 ) -> None:
     """Run Tier 1: download new episodes and transcribe them."""
     logging.basicConfig(
@@ -98,5 +101,6 @@ def ingest(
         downloader=downloader,
         transcriber_factory=_build_transcriber_factory(model_cache_dir),
         podcast_filter=podcast,
+        limit=limit,
     )
     pipeline.ingest_all()

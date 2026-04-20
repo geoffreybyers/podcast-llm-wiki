@@ -26,6 +26,7 @@ class Pipeline:
     downloader: Downloader
     transcriber_factory: TranscriberFactory
     podcast_filter: Optional[str] = None  # if set, only process this podcast name
+    limit: Optional[int] = None  # if set, process at most N new episodes per podcast
 
     def ingest_all(self) -> None:
         self.ledger.ensure_initialized()
@@ -47,6 +48,8 @@ class Pipeline:
             known_ids=self.ledger.known_episode_ids(),
             max_backfill=pod.max_backfill,
         )
+        if self.limit is not None:
+            new = new[: self.limit]
         log.info("podcast=%s new_episodes=%d", pod.name, len(new))
 
         # Lazily build the transcriber once per podcast (loads heavy models).

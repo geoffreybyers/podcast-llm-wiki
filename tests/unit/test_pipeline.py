@@ -129,6 +129,49 @@ class TestPipelineIngest:
         downloader.download_episode.assert_not_called()
         transcriber.transcribe.assert_not_called()
 
+    def test_limit_caps_new_episodes_per_podcast(self, tmp_project: Path) -> None:
+        cfg = _config(tmp_project)
+        ledger = Ledger(tmp_project)
+        ledger.ensure_initialized()
+
+        eps = [
+            EpisodeMetadata(
+                episode_id=f"vid{i}", title=f"E{i}", channel_title="C",
+                published_at="2026-04-20", url=f"https://x.test/vid{i}",
+            )
+            for i in range(3)
+        ]
+
+        def download_side(ep, podcast_name):
+            audio = tmp_project / "podcasts" / podcast_name / "downloads" / f"{ep.episode_id}.wav"
+            audio.parent.mkdir(parents=True, exist_ok=True)
+            audio.write_bytes(b"RIFF")
+            return DownloadResult(metadata=ep, audio_path=audio, info_json_path=audio.with_suffix(".info.json"))
+
+        downloader = MagicMock()
+        downloader.enumerate_playlist.return_value = eps
+        downloader.filter_new.return_value = eps
+        downloader.download_episode.side_effect = download_side
+
+        transcriber = MagicMock()
+        transcriber.transcribe.return_value = TranscriptionResult(
+            segments=[TranscriptSegment(0.0, 1.0, None, "x")],
+            duration_sec=1.0, model_name="whisper-base", diarization=False,
+        )
+
+        p = Pipeline(
+            project_root=tmp_project,
+            config=cfg,
+            ledger=ledger,
+            downloader=downloader,
+            transcriber_factory=lambda pod: transcriber,
+            limit=1,
+        )
+        p.ingest_all()
+
+        assert downloader.download_episode.call_count == 1
+        assert transcriber.transcribe.call_count == 1
+
     def test_records_failure_and_continues_on_download_error(self, tmp_project: Path) -> None:
         cfg = _config(tmp_project)
         # Add a second podcast so we can verify continuation.
