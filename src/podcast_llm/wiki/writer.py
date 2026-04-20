@@ -135,6 +135,47 @@ class WikiWriter:
         atomic_write(path, frontmatter + body)
         return path
 
+    def upsert_concept_page(
+        self,
+        concept: ConceptItem,
+        *,
+        episode_meta: EpisodeMeta,
+    ) -> Path:
+        path = self._concept_page_path(concept.name)
+        backlink = f"[[{episode_meta.base_filename()}]]"
+        today = date.today().isoformat()
+
+        if path.exists():
+            existing = path.read_text()
+            existing = _replace_frontmatter_field(existing, "updated", today)
+            if backlink not in existing:
+                appended_block = (
+                    f"\n## Mention in {backlink} (at {concept.timestamp})\n"
+                    f"{concept.definition}\n"
+                )
+                existing = existing.rstrip() + "\n" + appended_block
+            atomic_write(path, existing)
+            return path
+
+        frontmatter = (
+            "---\n"
+            f"title: {concept.name}\n"
+            f"created: {today}\n"
+            f"updated: {today}\n"
+            "type: concept\n"
+            "tags: [concept]\n"
+            "---\n\n"
+        )
+        body = (
+            f"# {concept.name}\n\n"
+            f"**Definition:** {concept.definition}\n\n"
+            "## Mentions\n"
+            f"## Mention in {backlink} (at {concept.timestamp})\n"
+            f"{concept.definition}\n"
+        )
+        atomic_write(path, frontmatter + body)
+        return path
+
 
 def _replace_frontmatter_field(text: str, key: str, new_value: str) -> str:
     """Replace `key: <value>` line inside the leading YAML frontmatter block."""

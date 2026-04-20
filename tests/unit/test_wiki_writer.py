@@ -124,3 +124,34 @@ class TestUpsertEntityPage:
         assert len(pages) == 1
         # `updated` date present (we only verify the line, not the value).
         assert "updated:" in text
+
+
+class TestUpsertConceptPage:
+    def test_creates_new_concept_page(self, vault: Path) -> None:
+        meta = _episode_meta()
+        w = WikiWriter(vault)
+        c = ConceptItem(
+            name="circadian rhythm",
+            definition="24-hour biological cycle governing wakefulness",
+            timestamp="00:05:00",
+        )
+        path = w.upsert_concept_page(c, episode_meta=meta)
+        text = path.read_text()
+        assert path.parent == vault / "concepts"
+        assert "type: concept" in text
+        assert "circadian rhythm" in text
+        assert "24-hour biological cycle" in text
+        assert f"[[{meta.base_filename()}]]" in text
+
+    def test_appends_mention_for_second_episode(self, vault: Path) -> None:
+        meta1 = _episode_meta(episode_id="e1", title="A")
+        meta2 = _episode_meta(episode_id="e2", title="B")
+        c1 = ConceptItem("dopamine", "neurotransmitter", "00:00:10")
+        c2 = ConceptItem("dopamine", "see prior episode", "00:00:20")
+        w = WikiWriter(vault)
+        w.upsert_concept_page(c1, episode_meta=meta1)
+        path = w.upsert_concept_page(c2, episode_meta=meta2)
+        text = path.read_text()
+        assert f"[[{meta1.base_filename()}]]" in text
+        assert f"[[{meta2.base_filename()}]]" in text
+        assert len(list((vault / "concepts").glob("*.md"))) == 1
