@@ -1,0 +1,93 @@
+# src/podcast_llm/cli.py
+from __future__ import annotations
+
+import logging
+from pathlib import Path
+from typing import Optional
+
+import typer
+
+from podcast_llm.config import load_config
+from podcast_llm.downloader import Downloader
+from podcast_llm.ledger import Ledger
+from podcast_llm.pipeline import Pipeline
+from podcast_llm.transcriber import (
+    PyannoteDiarizer,
+    SherpaOnnxAsr,
+    Transcriber,
+    detect_device,
+)
+
+app = typer.Typer(help="podcast-llm: ingest podcast playlists into a Karpathy LLM Wiki.")
+
+
+@app.callback(invoke_without_command=True)
+def main() -> None:
+    """podcast-llm CLI."""
+    pass
+
+
+def _build_transcriber_factory(model_cache_dir: Path):
+    device = detect_device()
+
+    def factory(pod):
+        asr = SherpaOnnxAsr(
+            model_dir=model_cache_dir / pod.stt_model,
+            model_name=pod.stt_model,
+            device=device,
+        )
+        diar = (
+            PyannoteDiarizer(
+                segmentation_model=pod.diarization_segmentation,
+                embedding_model=pod.diarization_embedding,
+                device=device,
+            )
+            if pod.diarization
+            else None
+        )
+        return Transcriber(
+            asr_engine=asr,
+            diar_engine=diar,
+            model_name=pod.stt_model,
+            diarization=pod.diarization,
+        )
+
+    return factory
+
+
+@app.command()
+def ingest(
+    config: Path = typer.Option(
+        Path("podcasts.yaml"), "--config", help="Path to podcasts.yaml."
+    ),
+    project_root: Path = typer.Option(
+        Path("."), "--project-root", help="Project root containing podcasts/, logs/, etc."
+    ),
+    podcast: Optional[str] = typer.Option(
+        None, "--podcast", help="Process only this podcast (by name)."
+    ),
+    model_cache_dir: Path = typer.Option(
+        Path("~/.cache/sherpa-onnx").expanduser(),
+        "--model-cache-dir",
+        help="Where ONNX model files live.",
+    ),
+    log_level: str = typer.Option("INFO", "--log-level"),
+) -> None:
+    """Run Tier 1: download new episodes and transcribe them."""
+    logging.basicConfig(
+        level=log_level.upper(),
+        format="%(asctime)s %(levelname)s %(name)s: %(message)s",
+    )
+
+    cfg = load_config(config)
+    ledger = Ledger(project_root)
+    downloader = Downloader(downloads_root=project_root / "podcasts")
+    pipeline = Pipeline(
+        project_root=project_root,
+        config=cfg,
+        ledger=ledger,
+        downloader=downloader,
+        transcriber_factory=_build_transcriber_factory(model_cache_dir),
+        podcast_filter=podcast,
+    )
+    pipeline.ingest_all()
