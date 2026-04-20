@@ -5,6 +5,9 @@ analysis_queue.md
 logs/
 podcasts/
 
+# Worktrees (subagent-driven dev workspaces)
+.worktrees/
+
 # Python
 __pycache__/
 *.py[cod]
