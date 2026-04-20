@@ -66,11 +66,18 @@ class Pipeline:
             )
 
             try:
-                self.downloader.download_episode(ep, podcast_name=pod.name)
+                dl = self.downloader.download_episode(ep, podcast_name=pod.name)
             except Exception as exc:  # noqa: BLE001
                 log.exception("download failed: %s", ep.episode_id)
                 self.ledger.record_failed(rec, stage="download", error=str(exc))
                 continue
+            # Flat playlist enumeration doesn't include upload_date; the
+            # downloader enriches metadata from the info.json sidecar after
+            # the download succeeds. Thread that through to the ledger row
+            # and downstream rendering.
+            if dl.metadata.published_at:
+                rec.published_at = dl.metadata.published_at
+                ep = dl.metadata
             self.ledger.record_downloaded(rec)
 
             if transcriber is None:

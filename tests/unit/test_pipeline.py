@@ -172,6 +172,71 @@ class TestPipelineIngest:
         assert downloader.download_episode.call_count == 1
         assert transcriber.transcribe.call_count == 1
 
+    def test_enriches_published_at_from_download_result(self, tmp_project: Path) -> None:
+        cfg = _config(tmp_project)
+        ledger = Ledger(tmp_project)
+        ledger.ensure_initialized()
+
+        # ep from flat enumeration has a stale/blank published_at.
+        ep = EpisodeMetadata(
+            episode_id="vid1",
+            title="Episode One",
+            channel_title="Channel",
+            published_at="",
+            url="https://x.test/vid1",
+        )
+        downloads_dir = tmp_project / "podcasts" / "Test Podcast" / "downloads"
+        downloads_dir.mkdir(parents=True)
+        audio_path = downloads_dir / "vid1.wav"
+        audio_path.write_bytes(b"RIFF")
+
+        # Downloader returns an enriched metadata with the real date.
+        enriched = EpisodeMetadata(
+            episode_id=ep.episode_id,
+            title=ep.title,
+            channel_title=ep.channel_title,
+            published_at="2026-04-16",
+            url=ep.url,
+        )
+
+        downloader = MagicMock()
+        downloader.enumerate_playlist.return_value = [ep]
+        downloader.filter_new.return_value = [ep]
+        downloader.download_episode.return_value = DownloadResult(
+            metadata=enriched,
+            audio_path=audio_path,
+            info_json_path=downloads_dir / "vid1.info.json",
+        )
+
+        transcriber = MagicMock()
+        transcriber.transcribe.return_value = TranscriptionResult(
+            segments=[TranscriptSegment(0.0, 1.0, None, "hi")],
+            duration_sec=1.0,
+            model_name="whisper-base",
+            diarization=False,
+        )
+
+        p = Pipeline(
+            project_root=tmp_project,
+            config=cfg,
+            ledger=ledger,
+            downloader=downloader,
+            transcriber_factory=lambda pod: transcriber,
+        )
+        p.ingest_all()
+
+        # Ledger row carries the enriched date.
+        text = (tmp_project / "collected.md").read_text()
+        assert "2026-04-16" in text
+        assert "vid1" in text and "transcribed" in text
+
+        # Markdown frontmatter carries the enriched date.
+        transcriptions_dir = tmp_project / "podcasts" / "Test Podcast" / "transcriptions"
+        produced = list(transcriptions_dir.glob("*.md"))
+        assert len(produced) == 1
+        md = produced[0].read_text()
+        assert "publishedAt: 2026-04-16" in md
+
     def test_records_failure_and_continues_on_download_error(self, tmp_project: Path) -> None:
         cfg = _config(tmp_project)
         # Add a second podcast so we can verify continuation.

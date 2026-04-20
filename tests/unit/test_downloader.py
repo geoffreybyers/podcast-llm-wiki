@@ -9,6 +9,7 @@ from podcast_llm.downloader import (
     DownloadResult,
     Downloader,
     EpisodeMetadata,
+    _published_at_from_info_json,
 )
 
 
@@ -119,7 +120,8 @@ class TestDownloadEpisode:
         audio_path = audio_dir / "vid1.wav"
         info_path = audio_dir / "vid1.info.json"
         audio_path.write_bytes(b"RIFF")
-        info_path.write_text("{}")
+        # Real info.json with a timestamp — exercise the enrichment path.
+        info_path.write_text('{"timestamp": 1776340852}')
 
         mock_ydl = MagicMock()
         mock_ydl.__enter__.return_value = mock_ydl
@@ -132,6 +134,8 @@ class TestDownloadEpisode:
         assert isinstance(result, DownloadResult)
         assert result.audio_path == audio_path
         assert result.info_json_path == info_path
+        # published_at enriched from info.json timestamp (1776340852 → 2026-04-16 UTC).
+        assert result.metadata.published_at == "2026-04-16"
 
         # Verify yt-dlp was configured to write to podcast_dir with .info.json sidecar
         call_opts = mock_ydl_cls.call_args[0][0]
@@ -150,3 +154,31 @@ class TestDownloadEpisode:
         d = Downloader(downloads_root=tmp_path / "downloads")
         with pytest.raises(RuntimeError, match="yt-dlp"):
             d.download_episode(ep, podcast_name="P")
+
+
+class TestPublishedAtEnrichment:
+    def test_prefers_timestamp_over_upload_date(self, tmp_path: Path) -> None:
+        info_path = tmp_path / "vid1.info.json"
+        # timestamp → 2026-04-16 UTC; upload_date set to a different date to
+        # confirm preference for timestamp.
+        info_path.write_text('{"timestamp": 1776340852, "upload_date": "20250101"}')
+        assert _published_at_from_info_json(info_path) == "2026-04-16"
+
+    def test_falls_back_to_upload_date_when_no_timestamp(self, tmp_path: Path) -> None:
+        info_path = tmp_path / "vid1.info.json"
+        info_path.write_text('{"upload_date": "20260416"}')
+        assert _published_at_from_info_json(info_path) == "2026-04-16"
+
+    def test_returns_empty_when_neither_present(self, tmp_path: Path) -> None:
+        info_path = tmp_path / "vid1.info.json"
+        info_path.write_text("{}")
+        assert _published_at_from_info_json(info_path) == ""
+
+    def test_returns_empty_on_missing_file(self, tmp_path: Path) -> None:
+        info_path = tmp_path / "does_not_exist.info.json"
+        assert _published_at_from_info_json(info_path) == ""
+
+    def test_returns_empty_on_malformed_json(self, tmp_path: Path) -> None:
+        info_path = tmp_path / "vid1.info.json"
+        info_path.write_text("{not json")
+        assert _published_at_from_info_json(info_path) == ""

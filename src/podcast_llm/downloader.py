@@ -1,7 +1,8 @@
 from __future__ import annotations
 
+import json
 from dataclasses import dataclass
-from datetime import datetime
+from datetime import datetime, timezone
 from pathlib import Path
 from typing import Iterable, Optional
 
@@ -31,6 +32,30 @@ def _format_date(yyyymmdd: Optional[str]) -> str:
         return datetime.strptime(yyyymmdd, "%Y%m%d").strftime("%Y-%m-%d")
     except ValueError:
         return ""
+
+
+def _published_at_from_info_json(info_path: Path) -> str:
+    """Return ISO date (YYYY-MM-DD, UTC) from a yt-dlp info.json.
+
+    Prefers `timestamp` (precise epoch) over `upload_date` (date-only).
+    Returns "" on any parse failure — caller decides whether to fall back
+    to a previous value.
+    """
+    try:
+        with open(info_path, "r", encoding="utf-8") as f:
+            data = json.load(f)
+    except (OSError, json.JSONDecodeError):
+        return ""
+    ts = data.get("timestamp")
+    if isinstance(ts, (int, float)):
+        try:
+            return datetime.fromtimestamp(ts, tz=timezone.utc).strftime("%Y-%m-%d")
+        except (OverflowError, OSError, ValueError):
+            return ""
+    upload_date = data.get("upload_date")
+    if isinstance(upload_date, str) and upload_date:
+        return _format_date(upload_date)
+    return ""
 
 
 class Downloader:
@@ -105,7 +130,7 @@ class Downloader:
                     "preferredcodec": "wav",
                 },
             ],
-            # Resample to 16 kHz mono so sherpa-onnx ASR can consume directly.
+            # Resample to 16 kHz mono; faster-whisper expects 16 kHz input.
             "postprocessor_args": {
                 "ffmpeg": ["-ar", "16000", "-ac", "1"],
             },
@@ -117,4 +142,16 @@ class Downloader:
 
         audio_path = audio_dir / f"{episode.episode_id}.wav"
         info_path = audio_dir / f"{episode.episode_id}.info.json"
+
+        # Flat playlist enumeration doesn't include upload_date; yt-dlp's
+        # info.json sidecar does. Enrich from disk if we can.
+        enriched_date = _published_at_from_info_json(info_path)
+        if enriched_date:
+            episode = EpisodeMetadata(
+                episode_id=episode.episode_id,
+                title=episode.title,
+                channel_title=episode.channel_title,
+                published_at=enriched_date,
+                url=episode.url,
+            )
         return DownloadResult(metadata=episode, audio_path=audio_path, info_json_path=info_path)
