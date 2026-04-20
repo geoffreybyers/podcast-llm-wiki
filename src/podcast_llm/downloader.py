@@ -83,13 +83,14 @@ class Downloader:
         """Download bestaudio for `episode`, post-process to 16 kHz mono WAV.
 
         Side effect: writes audio file and `.info.json` sidecar in
-        `<downloads_root>/<podcast_name>/<episode_id>.{wav,info.json}`.
+        `<downloads_root>/<podcast_name>/downloads/<episode_id>.{wav,info.json}`.
         Updates the per-podcast yt-dlp download archive so re-runs skip.
         """
         podcast_dir = self.downloads_root / podcast_name
-        podcast_dir.mkdir(parents=True, exist_ok=True)
+        audio_dir = podcast_dir / "downloads"
+        audio_dir.mkdir(parents=True, exist_ok=True)
         archive_path = podcast_dir / ".archive"
-        outtmpl = str(podcast_dir / "%(id)s.%(ext)s")
+        outtmpl = str(audio_dir / "%(id)s.%(ext)s")
 
         opts = {
             "format": "bestaudio/best",
@@ -103,17 +104,17 @@ class Downloader:
                     "key": "FFmpegExtractAudio",
                     "preferredcodec": "wav",
                 },
-                {
-                    "key": "FFmpegPostProcessor",
-                    "args": ["-ar", "16000", "-ac", "1"],
-                },
             ],
+            # Resample to 16 kHz mono so sherpa-onnx ASR can consume directly.
+            "postprocessor_args": {
+                "ffmpeg": ["-ar", "16000", "-ac", "1"],
+            },
         }
         with YoutubeDL(opts) as ydl:
             rc = ydl.download([episode.url])
         if rc != 0:
             raise RuntimeError(f"yt-dlp exited with code {rc} for {episode.url}")
 
-        audio_path = podcast_dir / f"{episode.episode_id}.wav"
-        info_path = podcast_dir / f"{episode.episode_id}.info.json"
+        audio_path = audio_dir / f"{episode.episode_id}.wav"
+        info_path = audio_dir / f"{episode.episode_id}.info.json"
         return DownloadResult(metadata=episode, audio_path=audio_path, info_json_path=info_path)

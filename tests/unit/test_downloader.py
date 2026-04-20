@@ -114,9 +114,10 @@ class TestDownloadEpisode:
         # Pretend yt-dlp wrote files at expected paths.
         downloads_root = tmp_path / "downloads"
         podcast_dir = downloads_root / "P"
-        podcast_dir.mkdir(parents=True)
-        audio_path = podcast_dir / "vid1.wav"
-        info_path = podcast_dir / "vid1.info.json"
+        audio_dir = podcast_dir / "downloads"
+        audio_dir.mkdir(parents=True)
+        audio_path = audio_dir / "vid1.wav"
+        info_path = audio_dir / "vid1.info.json"
         audio_path.write_bytes(b"RIFF")
         info_path.write_text("{}")
 
@@ -136,7 +137,7 @@ class TestDownloadEpisode:
         call_opts = mock_ydl_cls.call_args[0][0]
         assert call_opts["writeinfojson"] is True
         assert "outtmpl" in call_opts
-        assert str(podcast_dir) in call_opts["outtmpl"]
+        assert str(audio_dir) in call_opts["outtmpl"]
 
     @patch("podcast_llm.downloader.YoutubeDL")
     def test_raises_on_yt_dlp_nonzero_exit(self, mock_ydl_cls, tmp_path: Path) -> None:
