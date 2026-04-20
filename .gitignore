@@ -1,0 +1,20 @@
+# Personal config and runtime state (per spec §8)
+podcasts.yaml
+collected.md
+analysis_queue.md
+logs/
+podcasts/
+
+# Python
+__pycache__/
+*.py[cod]
+*.egg-info/
+.venv/
+venv/
+.pytest_cache/
+
+# OS / editor
+.DS_Store
+.vscode/
+.idea/
+*.swp
