@@ -21,3 +21,8 @@ venv/
 .vscode/
 .idea/
 *.swp
+
+# Test fixtures (copyrighted audio not committed)
+tests/fixtures/short-clip.wav
+tests/fixtures/*.mp3
+tests/fixtures/*.m4a
