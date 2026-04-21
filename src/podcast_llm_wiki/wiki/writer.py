@@ -8,6 +8,7 @@ from typing import Iterable
 
 from podcast_llm_wiki.parsers.analysis_sections import (
     ConceptItem,
+    ContradictionItem,
     EntityItem,
     ParsedAnalysis,
 )
@@ -55,6 +56,7 @@ class WikiWriter:
         insights_md: str,
         entity_links: list[str],
         concept_links: list[str],
+        critical_pass_md: str = "",
     ) -> Path:
         today = date.today().isoformat()
         frontmatter = (
@@ -72,13 +74,19 @@ class WikiWriter:
             f"analysis_path: {meta.analysis_path}\n"
             "---\n\n"
         )
+        critical_pass_section = (
+            f"## Critical Pass\n{critical_pass_md.strip()}\n\n"
+            if critical_pass_md.strip()
+            else ""
+        )
         body = (
             f"# {meta.channel_title} — {meta.title}\n\n"
             "## TL;DR\n"
             f"{tldr.strip()}\n\n"
             "## Key Insights\n"
             f"{insights_md.strip()}\n\n"
-            "## Entities\n"
+            + critical_pass_section
+            + "## Entities\n"
             + "\n".join(f"- {link}" for link in entity_links)
             + ("\n\n" if entity_links else "\n")
             + "## Concepts\n"
@@ -179,12 +187,114 @@ class WikiWriter:
         atomic_write(path, frontmatter + body)
         return path
 
+    def comparison_slug(self, contradiction: ContradictionItem) -> str:
+        """Stable slug for a contradiction page. Per-claim granularity so pages
+        stay surgical rather than aggregating into grab-bags.
+        """
+        head = contradiction.claim[:60].rstrip(" .,:;!?")
+        return f"{sanitize_filename(head)} - contradiction"
+
+    def _comparison_page_path(self, slug: str) -> Path:
+        return self.vault / "comparisons" / f"{slug}.md"
+
+    def upsert_comparison_page(
+        self,
+        contradiction: ContradictionItem,
+        *,
+        episode_meta: EpisodeMeta,
+    ) -> Path:
+        slug = self.comparison_slug(contradiction)
+        path = self._comparison_page_path(slug)
+        backlink = f"[[{episode_meta.base_filename()}]]"
+        today = date.today().isoformat()
+
+        if path.exists():
+            existing = path.read_text()
+            existing = _replace_frontmatter_field(existing, "updated", today)
+            if backlink not in existing:
+                block = (
+                    f"\n## Mention in {backlink} (at {contradiction.timestamp})\n"
+                    f"{contradiction.claim}\n"
+                )
+                existing = existing.rstrip() + "\n" + block
+            atomic_write(path, existing)
+            return path
+
+        # Build the episodes frontmatter value. Internal contradictions use the
+        # sentinel "none" — skip the prior-episode wikilink in that case.
+        if contradiction.prior_episode == "none":
+            episodes_fm = backlink
+            prior_line = ""
+        else:
+            prior_link = f"[[{contradiction.prior_episode}]]"
+            episodes_fm = f"{backlink}, {prior_link}"
+            prior_line = f"- Prior episode: {prior_link}\n"
+
+        frontmatter = (
+            "---\n"
+            f"title: {contradiction.claim[:80]}\n"
+            f"created: {today}\n"
+            f"updated: {today}\n"
+            "type: comparison\n"
+            "comparison_type: contradiction\n"
+            f"episodes: {episodes_fm}\n"
+            f"resolution: {contradiction.resolution}\n"
+            "tags: [comparison, contradiction]\n"
+            "---\n\n"
+        )
+        body = (
+            f"# {contradiction.claim}\n\n"
+            f"**Resolution:** {contradiction.resolution}\n\n"
+            "## Episodes\n"
+            f"- This episode: {backlink} (at {contradiction.timestamp})\n"
+            + prior_line
+            + "\n"
+            "## Mentions\n"
+            f"## Mention in {backlink} (at {contradiction.timestamp})\n"
+            f"{contradiction.claim}\n"
+        )
+        atomic_write(path, frontmatter + body)
+        return path
+
+    def write_verify_query_page(
+        self,
+        todos: list[str],
+        *,
+        episode_meta: EpisodeMeta,
+    ) -> Path:
+        base = episode_meta.base_filename()
+        path = self.vault / "queries" / f"verify-{base}.md"
+        today = date.today().isoformat()
+        backlink = f"[[{base}]]"
+        frontmatter = (
+            "---\n"
+            f"title: Facts to verify — {episode_meta.title}\n"
+            f"created: {today}\n"
+            f"updated: {today}\n"
+            "type: query\n"
+            "query_type: verify\n"
+            f"source_episode: {backlink}\n"
+            "tags: [query, unverified]\n"
+            "---\n\n"
+        )
+        body = (
+            f"# Facts to verify — {episode_meta.title}\n\n"
+            f"Source: {backlink}\n\n"
+            "## Todos\n"
+            + "\n".join(f"- [ ] {item}" for item in todos)
+            + "\n"
+        )
+        atomic_write(path, frontmatter + body)
+        return path
+
     def update_index(
         self,
         *,
         new_episodes: list[tuple[str, str]] = (),
         new_entities: list[tuple[str, str]] = (),
         new_concepts: list[tuple[str, str]] = (),
+        new_comparisons: list[tuple[str, str]] = (),
+        new_queries: list[tuple[str, str]] = (),
     ) -> Path:
         index_path = self.vault / "index.md"
         text = index_path.read_text() if index_path.exists() else _DEFAULT_INDEX
@@ -196,6 +306,12 @@ class WikiWriter:
         ])
         text = _insert_under_section(text, "Concepts", [
             f"- [[{name}]] — {summary}" for name, summary in new_concepts
+        ])
+        text = _insert_under_section(text, "Comparisons", [
+            f"- [[{name}]] — {summary}" for name, summary in new_comparisons
+        ])
+        text = _insert_under_section(text, "Queries", [
+            f"- [[{name}]] — {summary}" for name, summary in new_queries
         ])
         text = _bump_index_total(text)
         text = _replace_index_last_updated(text, date.today().isoformat())

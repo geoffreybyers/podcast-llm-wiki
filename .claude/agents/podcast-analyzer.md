@@ -36,12 +36,14 @@ Apply the podcast's `lens` plus the canonical template. Produce ONE markdown fil
 - `# <channelTitle> — <title>`
 - `## TL;DR` — three sentences
 - `## Key Insights` — 5–10 insights ranked by novelty, each with a **bolded claim**, a paragraph, and an `[HH:MM:SS]` timestamp
-- `## Critical Pass` — steelman(s) (1–3, label by speaker if multi-thesis), weak/unsupported claims, claims to verify, contradictions with prior episodes (use `[[wikilinks]]` only if the page appears in `<vault_path>/index.md`)
+- `## Critical Pass` — steelman(s) (1–3, label by speaker if multi-thesis), weak/unsupported claims, claims to verify, contradictions with prior episodes (use `[[wikilinks]]` only if the page appears in `<vault_path>/index.md`). This whole section is copied verbatim into the vault episode page — it is the evaluative half of the lens.
 - `## Entities` — STRICT: `- name :: type :: context :: [HH:MM:SS]` (exactly 4 fields, ` :: ` as separator, timestamp in brackets)
 - `## Concepts` — STRICT: `- name :: definition :: [HH:MM:SS]` (exactly 3 fields)
+- `## Contradictions` — STRICT: `- claim :: prior_episode_base_filename :: resolution :: [HH:MM:SS]` (exactly 4 fields). `prior_episode_base_filename` must already appear in `<vault_path>/index.md` under **Episodes**, or the literal `none` for a contradiction internal to this episode. `resolution` ∈ `unresolved | newer-supersedes | both-stand`. Empty section allowed (omit or leave no bullets) when no contradictions were found.
+- `## Verification Todos` — bullet list: `- <claim> — <why it matters>`. No `::` grammar; parser only requires the `- ` prefix. One bullet per claim to verify. Empty section allowed.
 - `## Follow-ups`
 
-**Strict format is non-negotiable for Entities and Concepts** — the wiki writer parses these deterministically via `podcast_llm_wiki.parsers.analysis_sections.parse_analysis`. See `src/podcast_llm_wiki/parsers/analysis_sections.py` if you need the exact grammar.
+**Strict format is non-negotiable for Entities, Concepts, and Contradictions** — the wiki writer parses these deterministically via `podcast_llm_wiki.parsers.analysis_sections.parse_analysis`. See `src/podcast_llm_wiki/parsers/analysis_sections.py` if you need the exact grammar.
 
 Conservative page-creation threshold: only list an entity or concept in its section if it (a) already has a page in `<vault_path>/index.md` OR (b) is central to this episode. Passing mentions stay out.
 
@@ -100,10 +102,13 @@ transcription = Path("<transcription_path (relative is fine; pass absolute to be
 analysis = Path("<analysis_path>")
 parsed = parse_analysis(analysis.read_text())
 
-# Pull TL;DR and Key Insights out of the analysis text.
+# Pull TL;DR, Key Insights, and Critical Pass out of the analysis text.
 text = analysis.read_text()
 tldr = text.split("## TL;DR", 1)[1].split("\n## ", 1)[0].strip()
 insights_md = text.split("## Key Insights", 1)[1].split("\n## ", 1)[0].strip()
+critical_pass_md = ""
+if "## Critical Pass" in text:
+    critical_pass_md = text.split("## Critical Pass", 1)[1].split("\n## ", 1)[0].strip()
 
 entity_links = [f"[[{e.name}]] — {e.context}" for e in parsed.entities]
 concept_links = [f"[[{c.name}]] — {c.definition}" for c in parsed.concepts]
@@ -122,19 +127,28 @@ touched = []
 touched.append(w.copy_transcription(transcription, meta))
 touched.append(w.write_episode_page(
     meta, tldr=tldr, insights_md=insights_md,
+    critical_pass_md=critical_pass_md,
     entity_links=entity_links, concept_links=concept_links,
 ))
 for e in parsed.entities:
     touched.append(w.upsert_entity_page(e, episode_meta=meta))
 for c in parsed.concepts:
     touched.append(w.upsert_concept_page(c, episode_meta=meta))
+# Contradictions → one page per contradiction in comparisons/.
+for contra in parsed.contradictions:
+    touched.append(w.upsert_comparison_page(contra, episode_meta=meta))
+# Verification todos → one query page per episode in queries/.
+if parsed.verification_todos:
+    touched.append(w.write_verify_query_page(parsed.verification_todos, episode_meta=meta))
 touched.append(w.update_index(
     new_episodes=[(meta.base_filename(), meta.title)],
     new_entities=[(e.name, e.type) for e in parsed.entities],
     new_concepts=[(c.name, c.definition[:80]) for c in parsed.concepts],
+    new_comparisons=[(w.comparison_slug(contra), contra.claim[:80]) for contra in parsed.contradictions],
+    new_queries=([(f"verify-{meta.base_filename()}", "facts to verify")] if parsed.verification_todos else []),
 ))
 touched.append(w.append_log(action="analyze", subject=meta.base_filename(), files=touched))
-print(f"touched={len(touched)}")
+print(f"touched={len(touched)} contradictions={len(parsed.contradictions)} verify_todos={len(parsed.verification_todos)}")
 PY
 ```
 
@@ -170,7 +184,7 @@ Success:
   podcast: <podcast>
   vault: <vault_path>
   entities: N   concepts: M   files touched: K
-  contradictions: <none | brief list or "see Critical Pass">
+  contradictions_created: N   verify_todos: M
   notes: <skeleton created | parse retry needed | queue removal was explicit | ...>
 ```
 

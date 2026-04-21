@@ -7,6 +7,7 @@ import pytest
 
 from podcast_llm_wiki.parsers.analysis_sections import (
     ConceptItem,
+    ContradictionItem,
     EntityItem,
     ParsedAnalysis,
 )
@@ -85,6 +86,123 @@ class TestWriteEpisodePage:
         w = WikiWriter(vault)
         page = w.write_episode_page(meta, tldr="x", insights_md="", entity_links=[], concept_links=[])
         assert "/" not in page.name[:-3]  # excluding ".md"
+
+    def test_critical_pass_section_rendered_when_provided(self, vault: Path) -> None:
+        meta = _episode_meta()
+        w = WikiWriter(vault)
+        page = w.write_episode_page(
+            meta,
+            tldr="t",
+            insights_md="- **A:** body [00:01:00]",
+            critical_pass_md="- **Steelman:** strong argument\n- Weak claim: citation missing",
+            entity_links=[],
+            concept_links=[],
+        )
+        text = page.read_text()
+        assert "## Critical Pass" in text
+        assert "**Steelman:**" in text
+        assert "citation missing" in text
+        # Critical Pass sits between Insights and Entities.
+        assert text.index("## Key Insights") < text.index("## Critical Pass") < text.index("## Entities")
+
+    def test_critical_pass_omitted_when_empty(self, vault: Path) -> None:
+        meta = _episode_meta()
+        w = WikiWriter(vault)
+        page = w.write_episode_page(
+            meta, tldr="t", insights_md="", entity_links=[], concept_links=[],
+        )
+        assert "## Critical Pass" not in page.read_text()
+
+
+class TestUpsertComparisonPage:
+    def test_creates_comparison_page(self, vault: Path) -> None:
+        from podcast_llm_wiki.wiki.writer import WikiWriter
+        meta = _episode_meta()
+        w = WikiWriter(vault)
+        c = ContradictionItem(
+            claim="Claim that SAT has no predictive validity",
+            prior_episode="Andrew Huberman - Prior Episode",
+            resolution="unresolved",
+            timestamp="00:30:00",
+        )
+        path = w.upsert_comparison_page(c, episode_meta=meta)
+        assert path.parent == vault / "comparisons"
+        text = path.read_text()
+        assert text.startswith("---\n")
+        assert "type: comparison" in text
+        assert "comparison_type: contradiction" in text
+        assert "resolution: unresolved" in text
+        # Both episodes linked.
+        assert f"[[{meta.base_filename()}]]" in text
+        assert "[[Andrew Huberman - Prior Episode]]" in text
+        assert "Claim that SAT has no predictive validity" in text
+
+    def test_internal_contradiction_omits_prior_link(self, vault: Path) -> None:
+        meta = _episode_meta()
+        w = WikiWriter(vault)
+        c = ContradictionItem(
+            claim="Internal inconsistency about dosing",
+            prior_episode="none",
+            resolution="both-stand",
+            timestamp="01:10:00",
+        )
+        path = w.upsert_comparison_page(c, episode_meta=meta)
+        text = path.read_text()
+        assert f"[[{meta.base_filename()}]]" in text
+        # No "[[none]]" wikilink should be emitted.
+        assert "[[none]]" not in text
+
+    def test_appends_episode_to_existing_comparison(self, vault: Path) -> None:
+        meta1 = _episode_meta(episode_id="e1", title="One")
+        meta2 = _episode_meta(episode_id="e2", title="Two")
+        c = ContradictionItem(
+            claim="Same disputed claim across episodes",
+            prior_episode="Channel - Original Episode",
+            resolution="unresolved",
+            timestamp="00:05:00",
+        )
+        w = WikiWriter(vault)
+        w.upsert_comparison_page(c, episode_meta=meta1)
+        path = w.upsert_comparison_page(c, episode_meta=meta2)
+        text = path.read_text()
+        assert f"[[{meta1.base_filename()}]]" in text
+        assert f"[[{meta2.base_filename()}]]" in text
+        assert len(list((vault / "comparisons").glob("*.md"))) == 1
+
+
+class TestWriteVerifyQueryPage:
+    def test_creates_verify_page_with_todos(self, vault: Path) -> None:
+        meta = _episode_meta()
+        w = WikiWriter(vault)
+        path = w.write_verify_query_page(
+            [
+                "Effect size on meditation — no source given",
+                'Claim that SAT has "no predictive validity" — check sample vs population',
+            ],
+            episode_meta=meta,
+        )
+        assert path.parent == vault / "queries"
+        assert path.name == f"verify-{meta.base_filename()}.md"
+        text = path.read_text()
+        assert "type: query" in text
+        assert "query_type: verify" in text
+        assert f"source_episode: [[{meta.base_filename()}]]" in text
+        assert "Effect size on meditation" in text
+        assert "no predictive validity" in text
+
+
+class TestUpdateIndexComparisonsAndQueries:
+    def test_adds_comparison_and_query_entries(self, vault: Path) -> None:
+        meta = _episode_meta()
+        w = WikiWriter(vault)
+        w.update_index(
+            new_episodes=[(meta.base_filename(), meta.title)],
+            new_comparisons=[("disputed-claim - contradiction", "SAT validity dispute")],
+            new_queries=[(f"verify-{meta.base_filename()}", "facts to verify")],
+        )
+        idx = (vault / "index.md").read_text()
+        assert "[[disputed-claim - contradiction]] — SAT validity dispute" in idx
+        assert f"[[verify-{meta.base_filename()}]] — facts to verify" in idx
 
 
 class TestUpsertEntityPage:

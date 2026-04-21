@@ -7,12 +7,15 @@ from typing import Optional
 
 DELIM = "::"
 
+VALID_RESOLUTIONS = frozenset({"unresolved", "newer-supersedes", "both-stand"})
+
 
 class MalformedSectionError(ValueError):
-    """Raised when an Entities or Concepts section line is not parseable.
+    """Raised when a strict section line is not parseable.
 
     Per spec §6.2: the parser aborts the wiki update entirely on any malformed
-    line — never partial-update.
+    line — never partial-update. Applies to Entities, Concepts, and
+    Contradictions.
     """
 
 
@@ -32,9 +35,19 @@ class ConceptItem:
 
 
 @dataclass
+class ContradictionItem:
+    claim: str
+    prior_episode: str  # base filename of existing episode page, or "none"
+    resolution: str  # one of VALID_RESOLUTIONS
+    timestamp: str
+
+
+@dataclass
 class ParsedAnalysis:
     entities: list[EntityItem] = field(default_factory=list)
     concepts: list[ConceptItem] = field(default_factory=list)
+    contradictions: list[ContradictionItem] = field(default_factory=list)
+    verification_todos: list[str] = field(default_factory=list)
 
 
 _HEADING_RE = re.compile(r"^##\s+(.+?)\s*$")
@@ -113,6 +126,34 @@ def _parse_concept_line(line: str) -> ConceptItem:
     return ConceptItem(name=name, definition=definition, timestamp=ts_parsed)
 
 
+def _parse_contradiction_line(line: str) -> ContradictionItem:
+    if not line.startswith("- "):
+        raise MalformedSectionError(
+            f"contradictions: line must start with '- ', got: {line!r}"
+        )
+    body = line[2:]
+    parts = [p.strip() for p in body.split(DELIM)]
+    if len(parts) != 4:
+        raise MalformedSectionError(
+            f"contradictions: expected 4 fields separated by ' :: ', got {len(parts)} in line: {line!r}"
+        )
+    claim, prior_episode, resolution, ts = parts
+    if resolution not in VALID_RESOLUTIONS:
+        raise MalformedSectionError(
+            f"contradictions: resolution must be one of {sorted(VALID_RESOLUTIONS)}, got {resolution!r} in line: {line!r}"
+        )
+    try:
+        ts_parsed = _parse_timestamp_field(ts)
+    except ValueError as e:
+        raise MalformedSectionError(f"contradictions: {e} in line: {line!r}") from e
+    return ContradictionItem(
+        claim=claim,
+        prior_episode=prior_episode,
+        resolution=resolution,
+        timestamp=ts_parsed,
+    )
+
+
 def parse_analysis(text: str) -> ParsedAnalysis:
     """Parse the strict Entities/Concepts sections from a finished analysis.
 
@@ -133,4 +174,21 @@ def parse_analysis(text: str) -> ParsedAnalysis:
             continue
         concepts.append(_parse_concept_line(raw))
 
-    return ParsedAnalysis(entities=entities, concepts=concepts)
+    contradictions: list[ContradictionItem] = []
+    for raw in _extract_section(lines, "Contradictions"):
+        if not raw.strip():
+            continue
+        contradictions.append(_parse_contradiction_line(raw))
+
+    verification_todos: list[str] = []
+    for raw in _extract_section(lines, "Verification Todos"):
+        stripped = raw.strip()
+        if stripped.startswith("- "):
+            verification_todos.append(stripped[2:].strip())
+
+    return ParsedAnalysis(
+        entities=entities,
+        concepts=concepts,
+        contradictions=contradictions,
+        verification_todos=verification_todos,
+    )

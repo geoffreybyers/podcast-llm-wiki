@@ -26,6 +26,16 @@ concepts (ideas, mechanisms, frameworks) discussed.
 - When updating a page, always bump the `updated` date.
 - Every new page must be added to `index.md` under the correct section.
 - Every analyze action is appended to `log.md`.
+- Episode pages include a `## Critical Pass` section mirroring the analysis:
+  steelman, weak/unsupported claims, facts to verify, and contradictions
+  with prior episodes. This is the evaluative half of the lens — do not
+  drop it at the vault boundary.
+- When a claim in this episode contradicts a claim in a prior episode,
+  create a page under `comparisons/` named `<slug> - contradiction.md`
+  and link both episodes.
+- When the analysis flags facts to verify, create a page under `queries/`
+  named `verify-<episode-base>.md` listing each item with a back-link to
+  the episode.
 
 ## Frontmatter
 
@@ -43,6 +53,13 @@ publishedAt: YYYY-MM-DD
 url: https://youtube.com/watch?v=...
 transcription_path: <abs path>
 analysis_path: <abs path>
+# Comparison pages additionally include:
+comparison_type: contradiction | controversy | agreement
+episodes: [[ep-base-1]], [[ep-base-2]]
+resolution: unresolved | newer-supersedes | both-stand
+# Query pages additionally include:
+query_type: verify | explore | compare
+source_episode: [[ep-base]]
 ---
 ```
 
@@ -53,7 +70,8 @@ command will only emit tags from this list. To introduce a new tag, add it
 here first.
 
 - general: episode, panel, interview, solo, follow-up
-- meta: contradiction, controversy, prediction, comparison
+- meta: contradiction, controversy, prediction, comparison, critical-pass,
+  weak-claim, unverified, verified, sponsor-conflict
 
 ## Page Creation Thresholds
 
