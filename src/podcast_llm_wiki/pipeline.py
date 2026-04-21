@@ -27,6 +27,7 @@ class Pipeline:
     transcriber_factory: TranscriberFactory
     podcast_filter: Optional[str] = None  # if set, only process this podcast name
     limit: Optional[int] = None  # if set, process at most N new episodes per podcast
+    resume: bool = False  # if True, transcribe rows stuck in 'downloaded' before processing new episodes
 
     def ingest_all(self) -> None:
         self.ledger.ensure_initialized()
@@ -41,6 +42,12 @@ class Pipeline:
                 continue
 
     def _ingest_podcast(self, pod: PodcastConfig) -> None:
+        # Lazily build the transcriber once per podcast (loads heavy models).
+        transcriber: Optional[Transcriber] = None
+
+        if self.resume:
+            transcriber = self._resume_podcast(pod, transcriber)
+
         log.info("enumerating playlist: %s", pod.name)
         episodes = self.downloader.enumerate_playlist(pod.playlist_url)
         new = self.downloader.filter_new(
@@ -51,9 +58,6 @@ class Pipeline:
         if self.limit is not None:
             new = new[: self.limit]
         log.info("podcast=%s new_episodes=%d", pod.name, len(new))
-
-        # Lazily build the transcriber once per podcast (loads heavy models).
-        transcriber: Optional[Transcriber] = None
 
         for ep in new:
             rec = EpisodeRecord(
@@ -83,39 +87,69 @@ class Pipeline:
             if transcriber is None:
                 transcriber = self.transcriber_factory(pod)
 
-            audio_path = (
-                self.project_root
-                / "podcasts"
-                / pod.name
-                / "downloads"
-                / f"{ep.episode_id}.wav"
-            )
+            self._transcribe_and_record(pod, rec, transcriber)
 
-            try:
-                result = transcriber.transcribe(audio_path)
-            except Exception as exc:  # noqa: BLE001
-                log.exception("transcription failed: %s", ep.episode_id)
-                self.ledger.record_failed(rec, stage="transcription", error=str(exc))
+    def _resume_podcast(
+        self, pod: PodcastConfig, transcriber: Optional[Transcriber]
+    ) -> Optional[Transcriber]:
+        """Transcribe any rows stuck in 'downloaded' whose WAV is still on disk."""
+        stuck = self.ledger.resumable_records(podcast=pod.name)
+        if not stuck:
+            return transcriber
+        log.info("podcast=%s resumable_episodes=%d", pod.name, len(stuck))
+
+        for rec in stuck:
+            audio_path = self._audio_path(pod.name, rec.episode_id)
+            if not audio_path.exists():
+                log.warning(
+                    "resume: skipping %s — WAV missing at %s",
+                    rec.episode_id,
+                    audio_path,
+                )
                 continue
+            if transcriber is None:
+                transcriber = self.transcriber_factory(pod)
+            self._transcribe_and_record(pod, rec, transcriber)
+        return transcriber
 
-            md = render_transcript_markdown(
-                result,
-                episode_id=ep.episode_id,
-                channel_title=ep.channel_title,
-                title=ep.title,
-                published_at=ep.published_at,
-                url=ep.url,
-            )
-            base = sanitize_filename(
-                f"{ep.channel_title} - {ep.title}",
-                episode_id=ep.episode_id,
-            )
-            transcription_path = (
-                self.project_root
-                / "podcasts"
-                / pod.name
-                / "transcriptions"
-                / f"{base} - transcription.md"
-            )
-            atomic_write(transcription_path, md)
-            self.ledger.record_transcribed(ep.episode_id, str(transcription_path))
+    def _audio_path(self, podcast_name: str, episode_id: str) -> Path:
+        return (
+            self.project_root
+            / "podcasts"
+            / podcast_name
+            / "downloads"
+            / f"{episode_id}.wav"
+        )
+
+    def _transcribe_and_record(
+        self, pod: PodcastConfig, rec: EpisodeRecord, transcriber: Transcriber
+    ) -> None:
+        audio_path = self._audio_path(pod.name, rec.episode_id)
+        try:
+            result = transcriber.transcribe(audio_path)
+        except Exception as exc:  # noqa: BLE001
+            log.exception("transcription failed: %s", rec.episode_id)
+            self.ledger.record_failed(rec, stage="transcription", error=str(exc))
+            return
+
+        md = render_transcript_markdown(
+            result,
+            episode_id=rec.episode_id,
+            channel_title=rec.channel_title,
+            title=rec.title,
+            published_at=rec.published_at,
+            url=rec.url,
+        )
+        base = sanitize_filename(
+            f"{rec.channel_title} - {rec.title}",
+            episode_id=rec.episode_id,
+        )
+        transcription_path = (
+            self.project_root
+            / "podcasts"
+            / pod.name
+            / "transcriptions"
+            / f"{base} - transcription.md"
+        )
+        atomic_write(transcription_path, md)
+        self.ledger.record_transcribed(rec.episode_id, str(transcription_path))

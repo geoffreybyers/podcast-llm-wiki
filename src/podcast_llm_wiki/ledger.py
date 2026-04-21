@@ -169,6 +169,15 @@ class Ledger:
     def known_episode_ids(self) -> set[str]:
         return {r.episode_id for r in self._read_records()}
 
+    def resumable_records(self, podcast: Optional[str] = None) -> list[EpisodeRecord]:
+        """Ledger rows stuck in 'downloaded' state — candidates for resume."""
+        return [
+            r
+            for r in self._read_records()
+            if r.status == "downloaded"
+            and (podcast is None or r.podcast == podcast)
+        ]
+
     # --- analysis_queue.md ---
 
     def _queue_lines(self) -> list[str]:

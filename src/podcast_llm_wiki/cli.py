@@ -82,6 +82,11 @@ def ingest(
     limit: Optional[int] = typer.Option(
         None, "--limit", help="Process at most N new episodes per podcast (smoke-test friendly)."
     ),
+    resume: bool = typer.Option(
+        False,
+        "--resume/--no-resume",
+        help="Transcribe episodes stuck in 'downloaded' state (e.g. after a crash) before fetching new ones.",
+    ),
 ) -> None:
     """Run Tier 1: download new episodes and transcribe them."""
     today = __import__("datetime").date.today().isoformat()
@@ -105,5 +110,6 @@ def ingest(
         transcriber_factory=_build_transcriber_factory(model_cache_dir),
         podcast_filter=podcast,
         limit=limit,
+        resume=resume,
     )
     pipeline.ingest_all()

@@ -237,6 +237,145 @@ class TestPipelineIngest:
         md = produced[0].read_text()
         assert "publishedAt: 2026-04-16" in md
 
+    def test_resume_transcribes_stuck_downloaded_rows(self, tmp_project: Path) -> None:
+        cfg = _config(tmp_project)
+        ledger = Ledger(tmp_project)
+        ledger.ensure_initialized()
+
+        # Pre-existing "downloaded" row with WAV on disk — simulates a
+        # transcription that was interrupted mid-run.
+        from podcast_llm_wiki.ledger import EpisodeRecord
+        ledger.record_downloaded(
+            EpisodeRecord(
+                podcast="Test Podcast",
+                channel_title="Channel",
+                title="Stuck Episode",
+                published_at="2026-04-20",
+                url="https://x.test/vidS",
+                episode_id="vidS",
+            )
+        )
+        downloads_dir = tmp_project / "podcasts" / "Test Podcast" / "downloads"
+        downloads_dir.mkdir(parents=True)
+        (downloads_dir / "vidS.wav").write_bytes(b"RIFF")
+
+        downloader = MagicMock()
+        # Resume should not hit the playlist; but if it does we want an empty
+        # new-episode list.
+        downloader.enumerate_playlist.return_value = []
+        downloader.filter_new.return_value = []
+
+        transcriber = MagicMock()
+        transcriber.transcribe.return_value = TranscriptionResult(
+            segments=[TranscriptSegment(0.0, 1.0, None, "hi")],
+            duration_sec=1.0,
+            model_name="whisper-base",
+            diarization=False,
+        )
+
+        p = Pipeline(
+            project_root=tmp_project,
+            config=cfg,
+            ledger=ledger,
+            downloader=downloader,
+            transcriber_factory=lambda pod: transcriber,
+            resume=True,
+        )
+        p.ingest_all()
+
+        # Download was never re-attempted.
+        downloader.download_episode.assert_not_called()
+        # Transcription ran on the existing WAV.
+        transcriber.transcribe.assert_called_once()
+        # Ledger row updated.
+        text = (tmp_project / "collected.md").read_text()
+        assert "vidS" in text and "transcribed" in text
+        # Transcription file produced.
+        transcriptions_dir = tmp_project / "podcasts" / "Test Podcast" / "transcriptions"
+        produced = list(transcriptions_dir.glob("*.md"))
+        assert len(produced) == 1
+
+    def test_resume_skips_rows_without_wav_on_disk(self, tmp_project: Path) -> None:
+        cfg = _config(tmp_project)
+        ledger = Ledger(tmp_project)
+        ledger.ensure_initialized()
+
+        # Ledger says "downloaded" but the WAV isn't on disk (e.g. manually purged).
+        from podcast_llm_wiki.ledger import EpisodeRecord
+        ledger.record_downloaded(
+            EpisodeRecord(
+                podcast="Test Podcast",
+                channel_title="Channel",
+                title="No WAV",
+                published_at="2026-04-20",
+                url="https://x.test/vidM",
+                episode_id="vidM",
+            )
+        )
+
+        downloader = MagicMock()
+        downloader.enumerate_playlist.return_value = []
+        downloader.filter_new.return_value = []
+        transcriber = MagicMock()
+
+        p = Pipeline(
+            project_root=tmp_project,
+            config=cfg,
+            ledger=ledger,
+            downloader=downloader,
+            transcriber_factory=lambda pod: transcriber,
+            resume=True,
+        )
+        p.ingest_all()
+
+        transcriber.transcribe.assert_not_called()
+        # Row remains in "downloaded" state — we didn't touch it.
+        from podcast_llm_wiki.ledger import EpisodeRecord as _ER
+        rows = [
+            _ER.from_row(line)
+            for line in (tmp_project / "collected.md").read_text().splitlines()[2:]
+            if line.strip()
+        ]
+        assert len(rows) == 1 and rows[0].episode_id == "vidM"
+        assert rows[0].status == "downloaded"
+
+    def test_resume_off_by_default_leaves_stuck_rows_alone(self, tmp_project: Path) -> None:
+        cfg = _config(tmp_project)
+        ledger = Ledger(tmp_project)
+        ledger.ensure_initialized()
+
+        from podcast_llm_wiki.ledger import EpisodeRecord
+        ledger.record_downloaded(
+            EpisodeRecord(
+                podcast="Test Podcast",
+                channel_title="C",
+                title="T",
+                published_at="2026-04-20",
+                url="https://x.test/vidS",
+                episode_id="vidS",
+            )
+        )
+        downloads_dir = tmp_project / "podcasts" / "Test Podcast" / "downloads"
+        downloads_dir.mkdir(parents=True)
+        (downloads_dir / "vidS.wav").write_bytes(b"RIFF")
+
+        downloader = MagicMock()
+        downloader.enumerate_playlist.return_value = []
+        downloader.filter_new.return_value = []
+        transcriber = MagicMock()
+
+        p = Pipeline(
+            project_root=tmp_project,
+            config=cfg,
+            ledger=ledger,
+            downloader=downloader,
+            transcriber_factory=lambda pod: transcriber,
+            # resume defaults to False
+        )
+        p.ingest_all()
+
+        transcriber.transcribe.assert_not_called()
+
     def test_records_failure_and_continues_on_download_error(self, tmp_project: Path) -> None:
         cfg = _config(tmp_project)
         # Add a second podcast so we can verify continuation.

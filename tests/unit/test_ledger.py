@@ -97,6 +97,38 @@ class TestLedgerRecord:
         ledger.record_downloaded(_sample_record())
         assert ledger.is_known_episode("abc") is True
 
+
+class TestLedgerResumable:
+    def test_resumable_records_returns_only_downloaded_status(
+        self, tmp_project: Path
+    ) -> None:
+        ledger = Ledger(tmp_project)
+        ledger.ensure_initialized()
+        # downloaded — should be returned
+        ledger.record_downloaded(_sample_record(episode_id="a", title="A"))
+        # transcribed — should NOT be returned
+        ledger.record_downloaded(_sample_record(episode_id="b", title="B"))
+        ledger.record_transcribed("b", "/tmp/b.md")
+        # download_failed — should NOT be returned
+        ledger.record_failed(
+            _sample_record(episode_id="c", title="C"),
+            stage="download",
+            error="boom",
+        )
+
+        resumable = ledger.resumable_records()
+        ids = {r.episode_id for r in resumable}
+        assert ids == {"a"}
+
+    def test_resumable_records_filters_by_podcast(self, tmp_project: Path) -> None:
+        ledger = Ledger(tmp_project)
+        ledger.ensure_initialized()
+        ledger.record_downloaded(_sample_record(episode_id="a", podcast="P1"))
+        ledger.record_downloaded(_sample_record(episode_id="b", podcast="P2"))
+
+        p1 = ledger.resumable_records(podcast="P1")
+        assert {r.episode_id for r in p1} == {"a"}
+
     def test_known_episode_ids(self, tmp_project: Path) -> None:
         ledger = Ledger(tmp_project)
         ledger.ensure_initialized()
