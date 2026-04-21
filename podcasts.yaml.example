@@ -35,3 +35,18 @@ podcasts:
     # Per-podcast model overrides (uncomment to change defaults):
     # stt_model: medium.en
     # diarization: false
+
+  - name: "Huberman Lab"
+    playlist_url: "https://www.youtube.com/playlist?list=PLPNW_gerXa4Pc8S2qoUQc5e8Ir97RLuVW"
+    vault_path: "~/obsidian/Podcast - Huberman Lab"
+    lens: |
+      Huberman Lab provides science-based, actionable tools for optimizing
+      health, sleep, focus, and physical performance.
+
+      Extract protocols with enough specificity to act on: dosages, timing,
+      duration, intensity, and prerequisites. Capture the underlying mechanism
+      in one or two sentences so the "why" is preserved alongside the "how."
+      Grade the evidence for each protocol: peer-reviewed human trials,
+      preliminary or animal studies, or Huberman's personal practice. Flag
+      contradictions with prior episodes and note commercial conflicts of
+      interest (sponsors, supplement lines) when relevant to a recommendation.
