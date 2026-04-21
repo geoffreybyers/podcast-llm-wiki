@@ -1,4 +1,4 @@
-# src/podcast_llm/cli.py
+# src/podcast_llm_wiki/cli.py
 from __future__ import annotations
 
 import logging
@@ -12,25 +12,25 @@ from dotenv import load_dotenv
 # Does nothing when the file is absent; never overwrites existing env vars.
 load_dotenv()
 
-from podcast_llm.config import load_config
-from podcast_llm.downloader import Downloader
-from podcast_llm.ledger import Ledger
-from podcast_llm.logging_setup import configure_jsonl_logger
-from podcast_llm.pipeline import Pipeline
-from podcast_llm.preflight import run_all
-from podcast_llm.transcriber import (
+from podcast_llm_wiki.config import load_config
+from podcast_llm_wiki.downloader import Downloader
+from podcast_llm_wiki.ledger import Ledger
+from podcast_llm_wiki.logging_setup import configure_jsonl_logger
+from podcast_llm_wiki.pipeline import Pipeline
+from podcast_llm_wiki.preflight import run_all
+from podcast_llm_wiki.transcriber import (
     FasterWhisperAsr,
     PyannoteDiarizer,
     Transcriber,
     detect_device,
 )
 
-app = typer.Typer(help="podcast-llm: ingest podcast playlists into a Karpathy LLM Wiki.")
+app = typer.Typer(help="podcast-llm-wiki: ingest podcast playlists into a Karpathy LLM Wiki.")
 
 
 @app.callback(invoke_without_command=True)
 def main() -> None:
-    """podcast-llm CLI."""
+    """podcast-llm-wiki CLI."""
     pass
 
 

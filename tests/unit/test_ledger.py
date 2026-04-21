@@ -4,7 +4,7 @@ from pathlib import Path
 
 import pytest
 
-from podcast_llm.ledger import EpisodeRecord, Ledger
+from podcast_llm_wiki.ledger import EpisodeRecord, Ledger
 
 
 class TestLedgerInit:

@@ -5,13 +5,13 @@ import json
 import logging
 from pathlib import Path
 
-from podcast_llm.logging_setup import configure_jsonl_logger
+from podcast_llm_wiki.logging_setup import configure_jsonl_logger
 
 
 def test_writes_json_line_to_log_file(tmp_path: Path) -> None:
     log_path = tmp_path / "pipeline.jsonl"
-    configure_jsonl_logger(log_path, name="podcast_llm.test")
-    log = logging.getLogger("podcast_llm.test")
+    configure_jsonl_logger(log_path, name="podcast_llm_wiki.test")
+    log = logging.getLogger("podcast_llm_wiki.test")
     log.info("hello", extra={"episode_id": "vid1", "stage": "download"})
 
     # Flush handlers

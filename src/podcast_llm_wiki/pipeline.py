@@ -1,4 +1,4 @@
-# src/podcast_llm/pipeline.py
+# src/podcast_llm_wiki/pipeline.py
 from __future__ import annotations
 
 import logging
@@ -6,11 +6,11 @@ from dataclasses import dataclass
 from pathlib import Path
 from typing import Callable, Optional
 
-from podcast_llm.config import Config, PodcastConfig
-from podcast_llm.downloader import Downloader, EpisodeMetadata
-from podcast_llm.ledger import EpisodeRecord, Ledger
-from podcast_llm.transcriber import Transcriber, render_transcript_markdown
-from podcast_llm.utils.filesystem import atomic_write, sanitize_filename
+from podcast_llm_wiki.config import Config, PodcastConfig
+from podcast_llm_wiki.downloader import Downloader, EpisodeMetadata
+from podcast_llm_wiki.ledger import EpisodeRecord, Ledger
+from podcast_llm_wiki.transcriber import Transcriber, render_transcript_markdown
+from podcast_llm_wiki.utils.filesystem import atomic_write, sanitize_filename
 
 log = logging.getLogger(__name__)
 

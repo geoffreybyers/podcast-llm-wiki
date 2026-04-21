@@ -1,4 +1,4 @@
-# src/podcast_llm/logging_setup.py
+# src/podcast_llm_wiki/logging_setup.py
 from __future__ import annotations
 
 import json
@@ -32,7 +32,7 @@ class JsonLineFormatter(logging.Formatter):
         return json.dumps(payload, default=str)
 
 
-def configure_jsonl_logger(log_path: Path, name: str = "podcast_llm") -> None:
+def configure_jsonl_logger(log_path: Path, name: str = "podcast_llm_wiki") -> None:
     log_path = Path(log_path)
     log_path.parent.mkdir(parents=True, exist_ok=True)
     handler = logging.FileHandler(log_path, encoding="utf-8")

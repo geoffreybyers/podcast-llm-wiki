@@ -5,7 +5,7 @@ from unittest.mock import MagicMock, patch
 
 import pytest
 
-from podcast_llm.downloader import (
+from podcast_llm_wiki.downloader import (
     DownloadResult,
     Downloader,
     EpisodeMetadata,
@@ -14,7 +14,7 @@ from podcast_llm.downloader import (
 
 
 class TestEnumeratePlaylist:
-    @patch("podcast_llm.downloader.YoutubeDL")
+    @patch("podcast_llm_wiki.downloader.YoutubeDL")
     def test_returns_episode_metadata_list(self, mock_ydl_cls) -> None:
         mock_ydl = MagicMock()
         mock_ydl.__enter__.return_value = mock_ydl
@@ -47,7 +47,7 @@ class TestEnumeratePlaylist:
         assert episodes[0].channel_title == "Test Channel"
         assert episodes[0].published_at == "2026-01-01"
 
-    @patch("podcast_llm.downloader.YoutubeDL")
+    @patch("podcast_llm_wiki.downloader.YoutubeDL")
     def test_uses_flat_playlist_option(self, mock_ydl_cls) -> None:
         mock_ydl = MagicMock()
         mock_ydl.__enter__.return_value = mock_ydl
@@ -61,7 +61,7 @@ class TestEnumeratePlaylist:
         call_args = mock_ydl_cls.call_args[0][0]
         assert call_args.get("extract_flat") is True
 
-    @patch("podcast_llm.downloader.YoutubeDL")
+    @patch("podcast_llm_wiki.downloader.YoutubeDL")
     def test_handles_empty_playlist(self, mock_ydl_cls) -> None:
         mock_ydl = MagicMock()
         mock_ydl.__enter__.return_value = mock_ydl
@@ -106,7 +106,7 @@ class TestFilterNew:
 
 
 class TestDownloadEpisode:
-    @patch("podcast_llm.downloader.YoutubeDL")
+    @patch("podcast_llm_wiki.downloader.YoutubeDL")
     def test_downloads_audio_to_podcast_subdir(
         self, mock_ydl_cls, tmp_path: Path
     ) -> None:
@@ -143,7 +143,7 @@ class TestDownloadEpisode:
         assert "outtmpl" in call_opts
         assert str(audio_dir) in call_opts["outtmpl"]
 
-    @patch("podcast_llm.downloader.YoutubeDL")
+    @patch("podcast_llm_wiki.downloader.YoutubeDL")
     def test_raises_on_yt_dlp_nonzero_exit(self, mock_ydl_cls, tmp_path: Path) -> None:
         ep = _sample_episode("vid1")
         mock_ydl = MagicMock()

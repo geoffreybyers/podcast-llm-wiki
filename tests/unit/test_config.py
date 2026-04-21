@@ -4,7 +4,7 @@ from pathlib import Path
 
 import pytest
 
-from podcast_llm.config import Config, PodcastConfig, load_config
+from podcast_llm_wiki.config import Config, PodcastConfig, load_config
 
 FIXTURES = Path(__file__).parent.parent / "fixtures"
 

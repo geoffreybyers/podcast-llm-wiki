@@ -6,11 +6,11 @@ from unittest.mock import MagicMock
 
 import pytest
 
-from podcast_llm.config import Config, Defaults, PodcastConfig
-from podcast_llm.downloader import DownloadResult, EpisodeMetadata
-from podcast_llm.ledger import Ledger
-from podcast_llm.pipeline import Pipeline
-from podcast_llm.transcriber import TranscriptSegment, TranscriptionResult
+from podcast_llm_wiki.config import Config, Defaults, PodcastConfig
+from podcast_llm_wiki.downloader import DownloadResult, EpisodeMetadata
+from podcast_llm_wiki.ledger import Ledger
+from podcast_llm_wiki.pipeline import Pipeline
+from podcast_llm_wiki.transcriber import TranscriptSegment, TranscriptionResult
 
 
 def _config(tmp_path: Path) -> Config:
@@ -95,7 +95,7 @@ class TestPipelineIngest:
         ledger = Ledger(tmp_project)
         ledger.ensure_initialized()
         # Pre-mark episode as known.
-        from podcast_llm.ledger import EpisodeRecord
+        from podcast_llm_wiki.ledger import EpisodeRecord
         ledger.record_downloaded(
             EpisodeRecord(
                 podcast="Test Podcast",

@@ -6,12 +6,12 @@ from datetime import date
 from pathlib import Path
 from typing import Iterable
 
-from podcast_llm.parsers.analysis_sections import (
+from podcast_llm_wiki.parsers.analysis_sections import (
     ConceptItem,
     EntityItem,
     ParsedAnalysis,
 )
-from podcast_llm.utils.filesystem import atomic_write, sanitize_filename
+from podcast_llm_wiki.utils.filesystem import atomic_write, sanitize_filename
 
 
 @dataclass

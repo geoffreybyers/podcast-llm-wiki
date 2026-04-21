@@ -6,7 +6,7 @@ from unittest.mock import MagicMock, patch
 
 import pytest
 
-from podcast_llm.transcriber import (
+from podcast_llm_wiki.transcriber import (
     FasterWhisperAsr,
     TranscriptSegment,
     TranscriptionResult,
@@ -16,19 +16,19 @@ from podcast_llm.transcriber import (
 
 
 class TestDetectDevice:
-    @patch("podcast_llm.transcriber.torch")
+    @patch("podcast_llm_wiki.transcriber.torch")
     def test_prefers_cuda_when_available(self, mock_torch) -> None:
         mock_torch.cuda.is_available.return_value = True
         mock_torch.backends.mps.is_available.return_value = False
         assert detect_device() == "cuda"
 
-    @patch("podcast_llm.transcriber.torch")
+    @patch("podcast_llm_wiki.transcriber.torch")
     def test_falls_back_to_mps_on_apple(self, mock_torch) -> None:
         mock_torch.cuda.is_available.return_value = False
         mock_torch.backends.mps.is_available.return_value = True
         assert detect_device() == "mps"
 
-    @patch("podcast_llm.transcriber.torch")
+    @patch("podcast_llm_wiki.transcriber.torch")
     def test_falls_back_to_cpu(self, mock_torch) -> None:
         mock_torch.cuda.is_available.return_value = False
         mock_torch.backends.mps.is_available.return_value = False
@@ -120,7 +120,7 @@ class TestTranscriberTranscribe:
             (5.0, 10.0, "Speaker 2"),
         ]
 
-        from podcast_llm.transcriber import Transcriber
+        from podcast_llm_wiki.transcriber import Transcriber
 
         t = Transcriber(
             asr_engine=asr_engine,
@@ -144,7 +144,7 @@ class TestTranscriberTranscribe:
         ]
         diar_engine = MagicMock()
 
-        from podcast_llm.transcriber import Transcriber
+        from podcast_llm_wiki.transcriber import Transcriber
 
         t = Transcriber(
             asr_engine=asr_engine,
@@ -159,7 +159,7 @@ class TestTranscriberTranscribe:
 
 
 class TestFasterWhisperAsr:
-    @patch("podcast_llm.transcriber.WhisperModel")
+    @patch("podcast_llm_wiki.transcriber.WhisperModel")
     def test_transcribe_file_returns_segments(self, mock_model_cls) -> None:
         mock_model = MagicMock()
         mock_segments = iter(
@@ -190,8 +190,8 @@ class TestFasterWhisperAsr:
         assert call_kwargs.get("vad_filter") is True
         assert call_kwargs.get("beam_size") == 5
 
-    @patch("podcast_llm.transcriber.ctranslate2")
-    @patch("podcast_llm.transcriber.WhisperModel")
+    @patch("podcast_llm_wiki.transcriber.ctranslate2")
+    @patch("podcast_llm_wiki.transcriber.WhisperModel")
     def test_cpu_picks_int8_when_supported(self, mock_model_cls, mock_ct2) -> None:
         mock_ct2.get_supported_compute_types.return_value = {"int8", "int8_float32", "float32"}
         FasterWhisperAsr(model_name="small.en", device="cpu")
@@ -201,8 +201,8 @@ class TestFasterWhisperAsr:
         assert call_kwargs.get("compute_type") == "int8"
         assert call_kwargs.get("device") == "cpu"
 
-    @patch("podcast_llm.transcriber.ctranslate2")
-    @patch("podcast_llm.transcriber.WhisperModel")
+    @patch("podcast_llm_wiki.transcriber.ctranslate2")
+    @patch("podcast_llm_wiki.transcriber.WhisperModel")
     def test_cuda_prefers_float16_when_supported(self, mock_model_cls, mock_ct2) -> None:
         mock_ct2.get_supported_compute_types.return_value = {
             "float32",
@@ -216,8 +216,8 @@ class TestFasterWhisperAsr:
         assert call_kwargs.get("compute_type") == "float16"
         assert call_kwargs.get("device") == "cuda"
 
-    @patch("podcast_llm.transcriber.ctranslate2")
-    @patch("podcast_llm.transcriber.WhisperModel")
+    @patch("podcast_llm_wiki.transcriber.ctranslate2")
+    @patch("podcast_llm_wiki.transcriber.WhisperModel")
     def test_cuda_falls_back_when_float16_unavailable(self, mock_model_cls, mock_ct2) -> None:
         # Mimics ctranslate2 4.7 on CUDA-13 driver: no float16 kernels.
         mock_ct2.get_supported_compute_types.return_value = {"float32", "int8_float32", "int8"}

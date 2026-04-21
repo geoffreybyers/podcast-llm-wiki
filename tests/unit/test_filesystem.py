@@ -4,7 +4,7 @@ from pathlib import Path
 
 import pytest
 
-from podcast_llm.utils.filesystem import atomic_write, sanitize_filename
+from podcast_llm_wiki.utils.filesystem import atomic_write, sanitize_filename
 
 
 class TestAtomicWrite:

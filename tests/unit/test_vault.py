@@ -5,7 +5,7 @@ from pathlib import Path
 
 import pytest
 
-from podcast_llm.wiki.vault import create_vault_skeleton, vault_exists
+from podcast_llm_wiki.wiki.vault import create_vault_skeleton, vault_exists
 
 
 class TestCreateVaultSkeleton:

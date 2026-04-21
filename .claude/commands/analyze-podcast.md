@@ -4,7 +4,7 @@ description: Analyze the next pending podcast transcription, write structured an
 
 # /analyze-podcast
 
-You are the analysis tier of the `podcast-llm` pipeline. The download and
+You are the analysis tier of the `podcast-llm-wiki` pipeline. The download and
 transcription tier has already produced diarized transcriptions and queued
 them for analysis. Your job: pop the next entry from the queue, generate a
 structured analysis under the per-podcast lens, then update the corresponding
@@ -91,12 +91,12 @@ If parseable: continue.
 ### 6. Ensure the vault skeleton exists
 
 If `<vault_path>/SCHEMA.md` does not exist, the vault has not been
-initialized. Run `python -c "from podcast_llm.wiki.vault import create_vault_skeleton; from pathlib import Path; create_vault_skeleton(Path('<vault_path>'), podcast_name='<podcast-name>', lens='''<lens>''')"`
+initialized. Run `python -c "from podcast_llm_wiki.wiki.vault import create_vault_skeleton; from pathlib import Path; create_vault_skeleton(Path('<vault_path>'), podcast_name='<podcast-name>', lens='''<lens>''')"`
 to create the skeleton, then continue.
 
 ### 7. Update the vault
 
-Use the `podcast_llm.wiki.writer.WikiWriter` API. In a single Bash call run a
+Use the `podcast_llm_wiki.wiki.writer.WikiWriter` API. In a single Bash call run a
 short Python snippet that:
 
 1. Copies the transcription to `<vault_path>/raw/transcripts/`.
@@ -111,11 +111,11 @@ short Python snippet that:
 
 ### 8. Update the ledger
 
-Run: `python -m podcast_llm` … (no, use the library directly):
+Run: `python -m podcast_llm_wiki` … (no, use the library directly):
 
 ```python
 from pathlib import Path
-from podcast_llm.ledger import Ledger
+from podcast_llm_wiki.ledger import Ledger
 
 l = Ledger(Path("."))
 l.record_analyzed(episode_id="<episode_id>", transcription_path="<abs path>")

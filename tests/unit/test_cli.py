@@ -5,7 +5,7 @@ from pathlib import Path
 
 from typer.testing import CliRunner
 
-from podcast_llm.cli import app
+from podcast_llm_wiki.cli import app
 
 
 def test_ingest_command_exists() -> None:
@@ -33,7 +33,7 @@ def test_ingest_command_loads_config(tmp_path: Path, monkeypatch) -> None:
     def fake_ingest(self) -> None:
         called["yes"] = True
 
-    monkeypatch.setattr("podcast_llm.cli.Pipeline.ingest_all", fake_ingest)
+    monkeypatch.setattr("podcast_llm_wiki.cli.Pipeline.ingest_all", fake_ingest)
 
     runner = CliRunner()
     result = runner.invoke(

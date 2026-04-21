@@ -1,4 +1,4 @@
-# src/podcast_llm/preflight.py
+# src/podcast_llm_wiki/preflight.py
 from __future__ import annotations
 
 import logging
@@ -6,8 +6,8 @@ from typing import Iterable
 
 import yt_dlp
 
-from podcast_llm.config import PodcastConfig
-from podcast_llm.wiki.vault import create_vault_skeleton
+from podcast_llm_wiki.config import PodcastConfig
+from podcast_llm_wiki.wiki.vault import create_vault_skeleton
 
 log = logging.getLogger(__name__)
 

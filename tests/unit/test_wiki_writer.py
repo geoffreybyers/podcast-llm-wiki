@@ -5,13 +5,13 @@ from pathlib import Path
 
 import pytest
 
-from podcast_llm.parsers.analysis_sections import (
+from podcast_llm_wiki.parsers.analysis_sections import (
     ConceptItem,
     EntityItem,
     ParsedAnalysis,
 )
-from podcast_llm.wiki.vault import create_vault_skeleton
-from podcast_llm.wiki.writer import (
+from podcast_llm_wiki.wiki.vault import create_vault_skeleton
+from podcast_llm_wiki.wiki.writer import (
     EpisodeMeta,
     WikiWriter,
 )

@@ -5,7 +5,7 @@ from datetime import datetime, timezone
 from pathlib import Path
 from typing import Optional
 
-from podcast_llm.utils.filesystem import atomic_write
+from podcast_llm_wiki.utils.filesystem import atomic_write
 
 COLLECTED_HEADER = (
     "| podcast | channelTitle | title | publishedAt | url | episode_id | status "

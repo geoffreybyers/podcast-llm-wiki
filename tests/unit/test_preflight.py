@@ -6,8 +6,8 @@ from unittest.mock import patch
 
 import pytest
 
-from podcast_llm.config import PodcastConfig
-from podcast_llm.preflight import (
+from podcast_llm_wiki.config import PodcastConfig
+from podcast_llm_wiki.preflight import (
     PreflightError,
     check_vault_skeletons,
     check_yt_dlp,
@@ -30,7 +30,7 @@ def _pod(vault: Path, *, name: str = "TestPod", lens: str = "Test lens.") -> Pod
 
 
 class TestCheckYtDlp:
-    @patch("podcast_llm.preflight.yt_dlp")
+    @patch("podcast_llm_wiki.preflight.yt_dlp")
     def test_passes_when_module_present(self, mock_mod) -> None:
         mock_mod.version.__version__ = "2026.01.01"
         check_yt_dlp()  # should not raise
@@ -66,8 +66,8 @@ class TestCheckVaultSkeletons:
 
 
 class TestRunAll:
-    @patch("podcast_llm.preflight.check_yt_dlp")
-    @patch("podcast_llm.preflight.check_vault_skeletons")
+    @patch("podcast_llm_wiki.preflight.check_yt_dlp")
+    @patch("podcast_llm_wiki.preflight.check_vault_skeletons")
     def test_runs_each_check(self, mock_vaults, mock_yt, tmp_path: Path) -> None:
         pods = [_pod(tmp_path / "v")]
         run_all(podcasts=pods)

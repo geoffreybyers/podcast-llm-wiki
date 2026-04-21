@@ -1,4 +1,4 @@
-"""Shared pytest fixtures for podcast-llm tests."""
+"""Shared pytest fixtures for podcast-llm-wiki tests."""
 from __future__ import annotations
 
 from pathlib import Path

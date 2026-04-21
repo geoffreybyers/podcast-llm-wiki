@@ -3,7 +3,7 @@ from __future__ import annotations
 
 import pytest
 
-from podcast_llm.parsers.analysis_sections import (
+from podcast_llm_wiki.parsers.analysis_sections import (
     ConceptItem,
     EntityItem,
     MalformedSectionError,

@@ -3,13 +3,13 @@ requires = ["setuptools>=68", "wheel"]
 build-backend = "setuptools.build_meta"
 
 [project]
-name = "podcast-llm"
+name = "podcast-llm-wiki"
 version = "0.1.0"
 description = "Ingest podcast playlists, transcribe locally, and compound analyses into a Karpathy-style LLM Wiki in Obsidian."
 readme = "README.md"
 license = { text = "MIT" }
 requires-python = ">=3.11"
-authors = [{ name = "podcast-llm contributors" }]
+authors = [{ name = "Geoffrey Byers" }]
 dependencies = [
     "pydantic>=2.6,<3",
     "pyyaml>=6.0",
@@ -29,7 +29,7 @@ dev = [
 ]
 
 [project.scripts]
-podcast-llm = "podcast_llm.cli:app"
+podcast-llm-wiki = "podcast_llm_wiki.cli:app"
 
 [tool.setuptools.packages.find]
 where = ["src"]

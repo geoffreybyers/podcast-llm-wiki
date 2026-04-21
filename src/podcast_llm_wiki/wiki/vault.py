@@ -1,11 +1,11 @@
-# src/podcast_llm/wiki/vault.py
+# src/podcast_llm_wiki/wiki/vault.py
 from __future__ import annotations
 
 from datetime import date
 from pathlib import Path
 from typing import Optional
 
-from podcast_llm.utils.filesystem import atomic_write
+from podcast_llm_wiki.utils.filesystem import atomic_write
 
 VAULT_SUBDIRS = (
     "raw/transcripts",
@@ -46,7 +46,7 @@ _LOG_TEMPLATE = """# Wiki Log
 > When this file exceeds 500 entries, rotate: rename to log-YYYY.md, start fresh.
 
 ## [{created}] create | Vault initialized
-- Created with podcast-llm
+- Created with podcast-llm-wiki
 """
 
 

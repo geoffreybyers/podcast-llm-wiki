@@ -15,7 +15,7 @@ from pathlib import Path
 
 import pytest
 
-from podcast_llm.transcriber import (
+from podcast_llm_wiki.transcriber import (
     FasterWhisperAsr,
     PyannoteDiarizer,
     Transcriber,
@@ -48,7 +48,7 @@ def test_transcribe_short_clip_no_diarization() -> None:
 def test_render_smoke() -> None:
     """Render path works on a synthetic TranscriptionResult — useful when
     faster-whisper isn't installed but you want to exercise output formatting."""
-    from podcast_llm.transcriber import TranscriptSegment, TranscriptionResult
+    from podcast_llm_wiki.transcriber import TranscriptSegment, TranscriptionResult
 
     result = TranscriptionResult(
         segments=[TranscriptSegment(0.0, 30.0, None, "smoke text")],

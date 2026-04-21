@@ -1,4 +1,4 @@
-# podcast-llm
+# podcast-llm-wiki
 
 Ingest YouTube podcast playlists, transcribe locally with diarization, and
 compound the results into a per-podcast [Karpathy-style LLM Wiki](https://gist.github.com/karpathy/442a6bf555914893e9891c11519de94f)
@@ -47,8 +47,8 @@ across episodes, and builds a graph of how the topics interrelate.
 ### Install
 
 ```bash
-git clone https://github.com/<your-fork>/podcast-llm.git
-cd podcast-llm
+git clone https://github.com/geoffreybyers/podcast-llm-wiki.git
+cd podcast-llm-wiki
 pip install -e ".[dev]"
 
 cp podcasts.yaml.example podcasts.yaml
@@ -80,7 +80,7 @@ seconds later.
    # then edit .env and paste your token after HF_TOKEN=
    ```
 
-   `.env` is gitignored. `podcast-llm` loads it automatically on startup, so
+   `.env` is gitignored. `podcast-llm-wiki` loads it automatically on startup, so
    the same file works from an interactive shell and from cron.
 
 Why three? pyannote's `speaker-diarization-3.1` pipeline delegates to a
@@ -91,7 +91,7 @@ crashes with `GatedRepoError` on first use.
 ### First run (smoke test on one episode)
 
 ```bash
-python -m podcast_llm ingest --limit 1 --podcast "Your Podcast Name"
+python -m podcast_llm_wiki ingest --limit 1 --podcast "Your Podcast Name"
 ```
 
 `--limit 1` caps each podcast at one new episode per run. Combined with
@@ -102,7 +102,7 @@ on a modest GPU), and adds it to `collected.md` and `analysis_queue.md`.
 ### Analyze in Claude Code
 
 ```bash
-cd /path/to/podcast-llm
+cd /path/to/podcast-llm-wiki
 claude  # opens Claude Code in the project directory
 ```
 
@@ -196,7 +196,7 @@ See `docs/wiki-schema-template.md` for the per-vault `SCHEMA.md` template.
 
 ```cron
 # Hourly check for new episodes
-0 * * * * cd /path/to/podcast-llm && /usr/bin/python -m podcast_llm ingest >> logs/cron.log 2>&1
+0 * * * * cd /path/to/podcast-llm-wiki && /usr/bin/python -m podcast_llm_wiki ingest >> logs/cron.log 2>&1
 ```
 
 ### Multi-GPU hosts

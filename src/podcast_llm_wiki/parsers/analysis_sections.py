@@ -1,4 +1,4 @@
-# src/podcast_llm/parsers/analysis_sections.py
+# src/podcast_llm_wiki/parsers/analysis_sections.py
 from __future__ import annotations
 
 import re
