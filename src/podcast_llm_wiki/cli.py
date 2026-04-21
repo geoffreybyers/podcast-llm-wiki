@@ -1,7 +1,6 @@
 # src/podcast_llm_wiki/cli.py
 from __future__ import annotations
 
-import logging
 from pathlib import Path
 from typing import Optional
 
@@ -15,7 +14,7 @@ load_dotenv()
 from podcast_llm_wiki.config import load_config
 from podcast_llm_wiki.downloader import Downloader
 from podcast_llm_wiki.ledger import Ledger
-from podcast_llm_wiki.logging_setup import configure_jsonl_logger
+from podcast_llm_wiki.logging_setup import configure_logging
 from podcast_llm_wiki.pipeline import Pipeline
 from podcast_llm_wiki.preflight import run_all
 from podcast_llm_wiki.transcriber import (
@@ -85,12 +84,11 @@ def ingest(
     ),
 ) -> None:
     """Run Tier 1: download new episodes and transcribe them."""
-    logging.basicConfig(
-        level=log_level.upper(),
-        format="%(asctime)s %(levelname)s %(name)s: %(message)s",
-    )
     today = __import__("datetime").date.today().isoformat()
-    configure_jsonl_logger(project_root / "logs" / f"pipeline-{today}.jsonl")
+    configure_logging(
+        project_root / "logs" / f"pipeline-{today}.jsonl",
+        console_level=log_level,
+    )
 
     cfg = load_config(config)
 
