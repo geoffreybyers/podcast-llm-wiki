@@ -16,11 +16,41 @@ from podcast_llm_wiki.transcriber import (
 
 
 class TestDetectDevice:
-    @patch("podcast_llm_wiki.transcriber.torch")
-    def test_prefers_cuda_when_available(self, mock_torch) -> None:
+    @staticmethod
+    def _mock_cuda(mock_torch, arch_list, ccs) -> None:
+        """Wire up torch.cuda.* for a host with len(ccs) GPUs.
+
+        Each element of `ccs` is an (major, minor) tuple giving the compute
+        capability of that GPU. `arch_list` is what torch.cuda.get_arch_list()
+        should return (the archs this torch build has kernels for).
+        """
         mock_torch.cuda.is_available.return_value = True
         mock_torch.backends.mps.is_available.return_value = False
+        mock_torch.cuda.device_count.return_value = len(ccs)
+        mock_torch.cuda.get_arch_list.return_value = list(arch_list)
+        props = [SimpleNamespace(major=m, minor=n) for m, n in ccs]
+        mock_torch.cuda.get_device_properties.side_effect = lambda i: props[i]
+
+    @patch("podcast_llm_wiki.transcriber.torch")
+    def test_prefers_cuda_when_available(self, mock_torch) -> None:
+        self._mock_cuda(mock_torch, ["sm_75", "sm_80"], [(7, 5)])
         assert detect_device() == "cuda"
+
+    @patch("podcast_llm_wiki.transcriber.torch")
+    def test_skips_incompatible_first_gpu(self, mock_torch) -> None:
+        # cuda:0 is Pascal sm_61 (unsupported), cuda:1 is Turing sm_75 (supported).
+        self._mock_cuda(
+            mock_torch,
+            ["sm_75", "sm_80", "sm_86"],
+            [(6, 1), (7, 5), (7, 5)],
+        )
+        assert detect_device() == "cuda:1"
+
+    @patch("podcast_llm_wiki.transcriber.torch")
+    def test_falls_back_to_cpu_when_no_compatible_gpu(self, mock_torch) -> None:
+        # Only a Pascal card present; torch build has no sm_6x kernels.
+        self._mock_cuda(mock_torch, ["sm_75", "sm_80"], [(6, 1)])
+        assert detect_device() == "cpu"
 
     @patch("podcast_llm_wiki.transcriber.torch")
     def test_falls_back_to_mps_on_apple(self, mock_torch) -> None:

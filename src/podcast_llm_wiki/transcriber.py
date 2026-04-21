@@ -46,10 +46,41 @@ class TranscriptionResult:
     diarization: bool
 
 
+def _cuda_build_supports_cc(cc: int, arch_list: list[str]) -> bool:
+    """True if the torch build has kernels that will run on a GPU with this CC.
+
+    Mirrors torch's own arch-match rule: a build targeting sm_XY is forward-
+    compatible within the same major family up to that GPU's CC. Without this
+    check, torch defaults to cuda:0 even when it's e.g. a Pascal (sm_61) card
+    that has no kernels in a cu13 build targeting sm_75+.
+    """
+    major = cc // 10
+    for arch in arch_list:
+        if not arch.startswith("sm_"):
+            continue
+        try:
+            built = int(arch[3:])
+        except ValueError:
+            continue
+        if built // 10 == major and built <= cc:
+            return True
+    return False
+
+
 def detect_device() -> str:
-    """Return 'cuda', 'mps', or 'cpu' based on what torch can use."""
+    """Return 'cuda[:N]', 'mps', or 'cpu' based on what torch can actually use.
+
+    On multi-GPU hosts, picks the lowest-indexed CUDA device whose compute
+    capability is covered by the installed torch build. Falls back to CPU/MPS
+    if no compatible CUDA device is present.
+    """
     if torch.cuda.is_available():
-        return "cuda"
+        arch_list = list(torch.cuda.get_arch_list() or [])
+        for idx in range(torch.cuda.device_count()):
+            props = torch.cuda.get_device_properties(idx)
+            cc = props.major * 10 + props.minor
+            if _cuda_build_supports_cc(cc, arch_list):
+                return "cuda" if idx == 0 else f"cuda:{idx}"
     if hasattr(torch, "backends") and torch.backends.mps.is_available():
         return "mps"
     return "cpu"
@@ -177,10 +208,20 @@ class FasterWhisperAsr:
     ) -> None:
         self.model_name = model_name
         self.device = device
-        # faster-whisper has no mps backend; fall back to cpu silently.
-        actual_device = "cuda" if device == "cuda" else "cpu"
+        # faster-whisper accepts 'cpu' or 'cuda' with a separate device_index,
+        # so split off any ':N' suffix; mps falls back to cpu silently.
+        if device.startswith("cuda"):
+            actual_device = "cuda"
+            device_index = int(device.split(":", 1)[1]) if ":" in device else 0
+        else:
+            actual_device = "cpu"
+            device_index = 0
         compute_type = _pick_compute_type(actual_device)
-        kwargs = {"device": actual_device, "compute_type": compute_type}
+        kwargs = {
+            "device": actual_device,
+            "device_index": device_index,
+            "compute_type": compute_type,
+        }
         if cache_dir is not None:
             kwargs["download_root"] = str(cache_dir)
         self._model = WhisperModel(model_name, **kwargs)
