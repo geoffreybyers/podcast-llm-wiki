@@ -4,6 +4,8 @@ Ingest YouTube podcast playlists, transcribe locally with diarization, and
 compound the results into a per-podcast [Karpathy-style LLM Wiki](https://gist.github.com/karpathy/442a6bf555914893e9891c11519de94f)
 inside an Obsidian vault.
 
+![Obsidian graph view of a vault after several Huberman Lab episodes — episodes, entities, and concepts emerge as interlinked nodes.](docs/images/vault-graph.png)
+
 ## What it is
 
 ```
