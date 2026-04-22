@@ -32,7 +32,6 @@ Agent(
   subagent_type="podcast-analyzer",
   description="Analyze <short title>",
   prompt="""
-Project root: /home/administrator/dev/podcast-llm-wiki
 transcription_path: <relative path>
 
 Run the full per-episode procedure. Return only the summary block.

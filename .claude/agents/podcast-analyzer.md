@@ -8,7 +8,7 @@ You are the per-episode analyzer for `podcast-llm-wiki`. You process ONE transcr
 
 ## Project root
 
-Unless the parent says otherwise, the project root is `/home/administrator/dev/podcast-llm-wiki`. All relative paths below are relative to that root. Use the venv Python for any `python -c` call: `/home/administrator/dev/podcast-llm-wiki/.venv/bin/python`.
+You are launched with the project root as your current working directory. All relative paths below are relative to that root. Use the venv Python for any `python -c` call: `.venv/bin/python`.
 
 ## Input (from parent prompt)
 
@@ -58,7 +58,7 @@ Use a single Write call. Do this **before** touching the vault so a vault-update
 Run the parser against your own file:
 
 ```bash
-/home/administrator/dev/podcast-llm-wiki/.venv/bin/python - <<'PY'
+.venv/bin/python - <<'PY'
 from pathlib import Path
 from podcast_llm_wiki.parsers.analysis_sections import parse_analysis
 text = Path("<analysis_path>").read_text()
@@ -74,7 +74,7 @@ If it raises `MalformedSectionError`, you get **one retry**: read the error line
 If `<vault_path>/SCHEMA.md` is missing, create the skeleton:
 
 ```bash
-/home/administrator/dev/podcast-llm-wiki/.venv/bin/python - <<'PY'
+.venv/bin/python - <<'PY'
 from pathlib import Path
 from podcast_llm_wiki.wiki.vault import create_vault_skeleton
 create_vault_skeleton(
@@ -92,7 +92,7 @@ Note "created skeleton" in your summary.
 Single Bash call with a Python snippet. Build `tldr`, `insights_md`, `entity_links`, `concept_links` from your analysis text. Example shape (adapt the string-building to what your file actually contains):
 
 ```bash
-/home/administrator/dev/podcast-llm-wiki/.venv/bin/python - <<'PY'
+.venv/bin/python - <<'PY'
 from pathlib import Path
 from podcast_llm_wiki.parsers.analysis_sections import parse_analysis
 from podcast_llm_wiki.wiki.writer import WikiWriter, EpisodeMeta
@@ -157,10 +157,10 @@ If this raises, the analysis file is still on disk — do NOT touch the ledger o
 ### 7. Update the ledger and queue
 
 ```bash
-/home/administrator/dev/podcast-llm-wiki/.venv/bin/python - <<'PY'
+.venv/bin/python - <<'PY'
 from pathlib import Path
 from podcast_llm_wiki.ledger import Ledger
-l = Ledger(Path("/home/administrator/dev/podcast-llm-wiki"))
+l = Ledger(Path.cwd())
 rel = "<relative transcription_path, e.g. podcasts/Huberman Lab/transcriptions/....md>"
 l.record_analyzed(episode_id="<episode_id>", transcription_path=rel)
 # Defensive: record_analyzed calls queue_remove(path) with whatever you pass.

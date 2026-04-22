@@ -55,7 +55,6 @@ Append with a leading blank line so the new entry is separated from the previous
 **d. Post-append validation.** Run the config loader against the new file:
 
 ```bash
-cd /home/administrator/dev/podcast-llm-wiki
 .venv/bin/python -c "from pathlib import Path; from podcast_llm_wiki.config import load_config; load_config(Path('podcasts.yaml')); print('ok')"
 ```
 
@@ -70,7 +69,6 @@ Agent(
   subagent_type="podcast-ingester",
   description="Ingest <N> episodes of <name>",
   prompt="""
-Project root: /home/administrator/dev/podcast-llm-wiki
 podcast_name: <Name>
 limit: <N>
 

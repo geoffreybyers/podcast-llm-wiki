@@ -8,7 +8,7 @@ You are the per-podcast ingester for `podcast-llm-wiki`. You process ONE podcast
 
 ## Project root
 
-Unless the parent says otherwise, the project root is `/home/administrator/dev/podcast-llm-wiki`. All relative paths below are relative to that root. Use the venv Python for any `python -c` call: `/home/administrator/dev/podcast-llm-wiki/.venv/bin/python`.
+You are launched with the project root as your current working directory. All relative paths below are relative to that root. Use the venv Python for any `python -c` call: `.venv/bin/python`.
 
 ## Input (from parent prompt)
 
@@ -32,7 +32,6 @@ Store the value; call it `START`.
 Single Bash call. Preflight stays enabled so the vault skeleton gets created on first run.
 
 ```bash
-cd /home/administrator/dev/podcast-llm-wiki
 .venv/bin/python -m podcast_llm_wiki ingest \
   --podcast "<podcast_name>" \
   --limit <limit>
@@ -47,11 +46,11 @@ Capture exit code. If non-zero, proceed to step 3 anyway — the ledger still re
 Read `collected.md` via the `Ledger` API, filter to rows for this podcast that were written during this run:
 
 ```bash
-/home/administrator/dev/podcast-llm-wiki/.venv/bin/python - <<'PY'
+.venv/bin/python - <<'PY'
 from pathlib import Path
 from podcast_llm_wiki.ledger import Ledger, EpisodeRecord
 
-ledger = Ledger(Path("/home/administrator/dev/podcast-llm-wiki"))
+ledger = Ledger(Path.cwd())
 START = "<START>"
 NAME  = "<podcast_name>"
 
