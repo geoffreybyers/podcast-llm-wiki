@@ -1,9 +1,11 @@
 # Podcast Analysis Template
 
 > Canonical structure for `/analyze-podcast` output. The wiki writer parses
-> the `## Entities` and `## Concepts` sections programmatically using the
-> strict ` :: ` delimiter. Any other section may be edited freely; format below
-> is the contract.
+> the `## Entities`, `## Concepts`, and `## Contradictions` sections
+> programmatically using the strict ` :: ` delimiter. Any other section may be
+> edited freely; format below is the contract. Angle-bracket tokens
+> (`<name>`, `<claim>`, etc.) are placeholders — substitute the actual value,
+> never emit the literal word.
 
 # {{channelTitle}} — {{title}}
 
@@ -33,7 +35,13 @@ Three sentences. The thesis, the new thing, why it matters.
 Strict `::`-delimited format. Four fields: name, type, one-line context, timestamp.
 
 ```
-- name :: type (person|org|study|product) :: 1-line context :: [HH:MM:SS]
+- <name> :: <type: person|org|study|product> :: <1-line context> :: [HH:MM:SS]
+```
+
+Example:
+
+```
+- Chamath Palihapitiya :: person :: Bestie arguing for Iran JCPOA revival :: [00:34:12]
 ```
 
 Only include entities meeting the page-creation thresholds in SCHEMA.md
@@ -44,7 +52,40 @@ Only include entities meeting the page-creation thresholds in SCHEMA.md
 Strict `::`-delimited format. Three fields: name, one-line definition, timestamp.
 
 ```
-- name :: 1-line definition :: [HH:MM:SS]
+- <name> :: <1-line definition> :: [HH:MM:SS]
+```
+
+Example:
+
+```
+- Sedation hypothesis :: Claim that porn acts as anxiolytic rather than dopamine addiction :: [01:12:45]
+```
+
+## Contradictions
+
+Strict `::`-delimited format. Four fields: the actual contradicting claim,
+the base filename of the prior episode page in `<vault>/index.md` (or `none`
+for a contradiction internal to this episode), the resolution
+(`unresolved | newer-supersedes | both-stand`), and the timestamp.
+
+```
+- <claim> :: <prior_episode_base_filename> :: <resolution> :: [HH:MM:SS]
+```
+
+Example:
+
+```
+- Sacks now backs JCPOA revival after opposing it on prior episode :: All-In-Iran-Greenland-Energy :: newer-supersedes :: [01:12:04]
+```
+
+Empty section allowed (omit or leave no bullets) when no contradictions found.
+
+## Verification Todos
+
+Bullet list. No `::` grammar — parser only requires the `- ` prefix.
+
+```
+- <claim> — <why it matters>
 ```
 
 ## Follow-ups
