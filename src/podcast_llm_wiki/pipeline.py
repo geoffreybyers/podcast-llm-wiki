@@ -92,7 +92,31 @@ class Pipeline:
     def _resume_podcast(
         self, pod: PodcastConfig, transcriber: Optional[Transcriber]
     ) -> Optional[Transcriber]:
-        """Transcribe any rows stuck in 'downloaded' whose WAV is still on disk."""
+        """Transcribe rows stuck in 'downloaded' and retry 'download_failed' rows."""
+        failed = self.ledger.failed_download_records(podcast=pod.name)
+        if failed:
+            log.info("podcast=%s retry_failed_downloads=%d", pod.name, len(failed))
+            for rec in failed:
+                ep = EpisodeMetadata(
+                    episode_id=rec.episode_id,
+                    title=rec.title,
+                    channel_title=rec.channel_title,
+                    published_at=rec.published_at,
+                    url=rec.url,
+                )
+                try:
+                    dl = self.downloader.download_episode(ep, podcast_name=pod.name)
+                except Exception as exc:  # noqa: BLE001
+                    log.exception("retry download failed: %s", rec.episode_id)
+                    self.ledger.record_failed(rec, stage="download", error=str(exc))
+                    continue
+                if dl.metadata.published_at:
+                    rec.published_at = dl.metadata.published_at
+                self.ledger.record_downloaded(rec)
+                if transcriber is None:
+                    transcriber = self.transcriber_factory(pod)
+                self._transcribe_and_record(pod, rec, transcriber)
+
         stuck = self.ledger.resumable_records(podcast=pod.name)
         if not stuck:
             return transcriber

@@ -178,6 +178,15 @@ class Ledger:
             and (podcast is None or r.podcast == podcast)
         ]
 
+    def failed_download_records(self, podcast: Optional[str] = None) -> list[EpisodeRecord]:
+        """Ledger rows in 'download_failed' state — candidates for retry."""
+        return [
+            r
+            for r in self._read_records()
+            if r.status == "download_failed"
+            and (podcast is None or r.podcast == podcast)
+        ]
+
     # --- analysis_queue.md ---
 
     def _queue_lines(self) -> list[str]:

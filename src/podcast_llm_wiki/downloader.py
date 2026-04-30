@@ -61,14 +61,36 @@ def _published_at_from_info_json(info_path: Path) -> str:
 class Downloader:
     """Wrapper around yt-dlp for playlist enumeration and audio download."""
 
-    def __init__(self, downloads_root: Path) -> None:
+    def __init__(
+        self,
+        downloads_root: Path,
+        cookies_from_browser: Optional[str] = None,
+    ) -> None:
         self.downloads_root = Path(downloads_root)
+        self.cookies_from_browser = cookies_from_browser
+
+    def _cookies_opt(self) -> dict:
+        # yt-dlp expects a 4-tuple: (browser, profile, keyring, container).
+        if not self.cookies_from_browser:
+            return {}
+        return {"cookiesfrombrowser": (self.cookies_from_browser, None, None, None)}
+
+    def _ytdlp_extra_opts(self) -> dict:
+        # Enable JS runtime + remote n-sig solver. No-op until YouTube issues
+        # an n-challenge; when it does (common for newer videos), downloads
+        # 404 with "Requested format is not available" without these.
+        return {
+            "js_runtimes": {"node": {}},
+            "remote_components": ["ejs:github"],
+        }
 
     def enumerate_playlist(self, playlist_url: str) -> list[EpisodeMetadata]:
         opts = {
             "extract_flat": True,
             "quiet": True,
             "skip_download": True,
+            **self._cookies_opt(),
+            **self._ytdlp_extra_opts(),
         }
         with YoutubeDL(opts) as ydl:
             info = ydl.extract_info(playlist_url, download=False)
@@ -134,6 +156,8 @@ class Downloader:
             "postprocessor_args": {
                 "ffmpeg": ["-ar", "16000", "-ac", "1"],
             },
+            **self._cookies_opt(),
+            **self._ytdlp_extra_opts(),
         }
         with YoutubeDL(opts) as ydl:
             rc = ydl.download([episode.url])

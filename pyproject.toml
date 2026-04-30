@@ -20,6 +20,9 @@ dependencies = [
     "pyannote.audio>=3.1",
     "torch>=2.1",  # required by pyannote
     "soundfile>=0.12",
+    # yt-dlp's Python API needs secretstorage to read encrypted browser cookies
+    # on Linux; without it, --cookies-from-browser raises mid-extract.
+    "secretstorage>=3.3; platform_system == 'Linux'",
 ]
 
 [project.optional-dependencies]

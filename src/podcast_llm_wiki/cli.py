@@ -85,7 +85,12 @@ def ingest(
     resume: bool = typer.Option(
         False,
         "--resume/--no-resume",
-        help="Transcribe episodes stuck in 'downloaded' state (e.g. after a crash) before fetching new ones.",
+        help="Before fetching new episodes: transcribe rows stuck in 'downloaded' and retry rows in 'download_failed'.",
+    ),
+    cookies_from_browser: Optional[str] = typer.Option(
+        None,
+        "--cookies-from-browser",
+        help="Pass yt-dlp cookies from a local browser (e.g. 'brave', 'firefox') to bypass YouTube bot checks.",
     ),
 ) -> None:
     """Run Tier 1: download new episodes and transcribe them."""
@@ -101,7 +106,10 @@ def ingest(
         run_all(podcasts=cfg.podcasts)
 
     ledger = Ledger(project_root)
-    downloader = Downloader(downloads_root=project_root / "podcasts")
+    downloader = Downloader(
+        downloads_root=project_root / "podcasts",
+        cookies_from_browser=cookies_from_browser,
+    )
     pipeline = Pipeline(
         project_root=project_root,
         config=cfg,
