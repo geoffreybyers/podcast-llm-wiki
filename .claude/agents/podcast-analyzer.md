@@ -43,6 +43,11 @@ Apply the podcast's `lens` plus the canonical template. Produce ONE markdown fil
 - `## Verification Todos` — bullet list: `- <claim> — <why it matters>`. No `::` grammar; parser only requires the `- ` prefix. One bullet per claim to verify. Empty section allowed.
 - `## Follow-ups`
 
+**Timestamp field rules** (these trip the strict parser most often):
+- The timestamp field is the *last* `::`-separated chunk and must contain *only* `[HH:MM:SS]` — no trailing parentheticals, no speaker tags, no annotations. ✗ `... :: [01:23:45] (Peter Crone segment)` → ✓ `... :: [01:23:45]` (move the parenthetical into the context field instead).
+- No placeholders, approximations, or sentinels. ✗ `:: ~`, `:: n/a`, `:: [unknown]`, `:: [HH:MM:SS]` (literal). If you don't have a real timestamp from the transcription, **drop the line entirely** — passing mentions stay out anyway (see threshold below).
+- Brackets are required: `[01:23:45]`, not `01:23:45`. Hours are two digits even for short episodes: `[00:04:12]`, not `[0:04:12]` or `[4:12]`.
+
 **Strict format is non-negotiable for Entities, Concepts, and Contradictions** — the wiki writer parses these deterministically via `podcast_llm_wiki.parsers.analysis_sections.parse_analysis`. See `src/podcast_llm_wiki/parsers/analysis_sections.py` if you need the exact grammar.
 
 Conservative page-creation threshold: only list an entity or concept in its section if it (a) already has a page in `<vault_path>/index.md` OR (b) is central to this episode. Passing mentions stay out.
