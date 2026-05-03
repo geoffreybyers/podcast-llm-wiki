@@ -159,6 +159,10 @@ class Ledger:
             rec.error = error
             records.append(rec)
         else:
+            # Don't downgrade a row that's already reached a terminal success state.
+            # E.g. a re-pull that hits a now-private video must not stomp a real transcript.
+            if existing.status in ("transcribed", "analyzed"):
+                return
             existing.status = status
             existing.error = error
         self._write_records(records)

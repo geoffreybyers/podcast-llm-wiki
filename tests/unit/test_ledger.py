@@ -90,6 +90,39 @@ class TestLedgerRecord:
         assert "download_failed" in text
         assert "HTTP 403" in text
 
+    def test_record_failed_does_not_downgrade_transcribed(self, tmp_project: Path) -> None:
+        """A re-pull that hits a private-video error must not stomp a successful transcribe."""
+        ledger = Ledger(tmp_project)
+        ledger.ensure_initialized()
+        ledger.record_downloaded(_sample_record())
+        ledger.record_transcribed("abc", "/p/abc.md")
+        ledger.record_failed(
+            _sample_record(),
+            stage="download",
+            error="Private video",
+        )
+        text = (tmp_project / "collected.md").read_text()
+        assert "transcribed" in text
+        assert "download_failed" not in text
+        # And the queued transcript path must still be there.
+        queue = (tmp_project / "analysis_queue.md").read_text()
+        assert "/p/abc.md" in queue
+
+    def test_record_failed_does_not_downgrade_analyzed(self, tmp_project: Path) -> None:
+        ledger = Ledger(tmp_project)
+        ledger.ensure_initialized()
+        ledger.record_downloaded(_sample_record())
+        ledger.record_transcribed("abc", "/p/abc.md")
+        ledger.record_analyzed("abc", "/p/abc.md")
+        ledger.record_failed(
+            _sample_record(),
+            stage="download",
+            error="Private video",
+        )
+        text = (tmp_project / "collected.md").read_text()
+        assert "analyzed" in text
+        assert "download_failed" not in text
+
     def test_is_known_episode(self, tmp_project: Path) -> None:
         ledger = Ledger(tmp_project)
         ledger.ensure_initialized()
