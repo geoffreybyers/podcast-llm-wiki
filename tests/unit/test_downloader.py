@@ -13,6 +13,52 @@ from podcast_llm_wiki.downloader import (
 )
 
 
+class TestCookiesFromBrowser:
+    """yt-dlp's spec is BROWSER[+KEYRING][:PROFILE][::CONTAINER].
+
+    Profile support matters in practice: a browser's *default* profile is often
+    not the one signed in to YouTube, and passing just the browser name silently
+    picks the default — looking like cookies were applied when they weren't.
+    """
+
+    def test_no_cookies_by_default(self) -> None:
+        assert Downloader(downloads_root=Path("/tmp"))._cookies_opt() == {}
+
+    def test_bare_browser_name(self) -> None:
+        d = Downloader(downloads_root=Path("/tmp"), cookies_from_browser="firefox")
+        assert d._cookies_opt() == {"cookiesfrombrowser": ("firefox", None, None, None)}
+
+    def test_browser_with_profile(self) -> None:
+        d = Downloader(
+            downloads_root=Path("/tmp"),
+            cookies_from_browser="firefox:/home/u/.mozilla/firefox/abc.Profile 4",
+        )
+        assert d._cookies_opt() == {
+            "cookiesfrombrowser": (
+                "firefox",
+                "/home/u/.mozilla/firefox/abc.Profile 4",
+                None,
+                None,
+            )
+        }
+
+    def test_browser_with_keyring(self) -> None:
+        d = Downloader(downloads_root=Path("/tmp"), cookies_from_browser="brave+gnomekeyring")
+        assert d._cookies_opt() == {
+            "cookiesfrombrowser": ("brave", None, "GNOMEKEYRING", None)
+        }
+
+    def test_browser_with_container(self) -> None:
+        d = Downloader(downloads_root=Path("/tmp"), cookies_from_browser="firefox::Personal")
+        assert d._cookies_opt() == {
+            "cookiesfrombrowser": ("firefox", None, None, "Personal")
+        }
+
+    def test_name_is_normalized(self) -> None:
+        d = Downloader(downloads_root=Path("/tmp"), cookies_from_browser="  FireFox  ")
+        assert d._cookies_opt()["cookiesfrombrowser"][0] == "firefox"
+
+
 class TestEnumeratePlaylist:
     @patch("podcast_llm_wiki.downloader.YoutubeDL")
     def test_returns_episode_metadata_list(self, mock_ydl_cls) -> None:

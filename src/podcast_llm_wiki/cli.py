@@ -91,7 +91,12 @@ def ingest(
     cookies_from_browser: Optional[str] = typer.Option(
         None,
         "--cookies-from-browser",
-        help="Pass yt-dlp cookies from a local browser (e.g. 'brave', 'firefox') to bypass YouTube bot checks.",
+        help=(
+            "Pass yt-dlp cookies from a local browser to bypass YouTube bot checks. "
+            "Accepts yt-dlp's spec: BROWSER[+KEYRING][:PROFILE][::CONTAINER], e.g. "
+            "'firefox' or 'firefox:/path/to/profile'. Give a PROFILE if the browser's "
+            "default profile is not the one signed in to YouTube."
+        ),
     ),
 ) -> None:
     """Run Tier 1: download new episodes and transcribe them."""

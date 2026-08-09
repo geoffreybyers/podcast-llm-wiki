@@ -70,10 +70,36 @@ class Downloader:
         self.cookies_from_browser = cookies_from_browser
 
     def _cookies_opt(self) -> dict:
-        # yt-dlp expects a 4-tuple: (browser, profile, keyring, container).
+        # yt-dlp expects a 4-tuple: (browser, profile, keyring, container), which
+        # it exposes on its own CLI as BROWSER[+KEYRING][:PROFILE][::CONTAINER].
+        #
+        # PROFILE is worth supporting rather than always passing None: a browser's
+        # default profile is frequently *not* the one signed in to YouTube, and
+        # yt-dlp falls back to the default silently — so the run looks like it is
+        # using cookies while actually staying anonymous, and the 403s continue.
         if not self.cookies_from_browser:
             return {}
-        return {"cookiesfrombrowser": (self.cookies_from_browser, None, None, None)}
+
+        spec = self.cookies_from_browser.strip()
+        container = None
+        if "::" in spec:
+            spec, container = spec.split("::", 1)
+        profile = None
+        if ":" in spec:
+            spec, profile = spec.split(":", 1)
+        keyring = None
+        if "+" in spec:
+            spec, keyring = spec.split("+", 1)
+            keyring = keyring.strip().upper() or None
+
+        return {
+            "cookiesfrombrowser": (
+                spec.strip().lower(),
+                profile.strip() or None if profile else None,
+                keyring,
+                container.strip() or None if container else None,
+            )
+        }
 
     def _ytdlp_extra_opts(self) -> dict:
         # Enable JS runtime + remote n-sig solver. No-op until YouTube issues
