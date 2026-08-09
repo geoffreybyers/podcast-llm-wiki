@@ -14,6 +14,9 @@ class Defaults(BaseModel):
     diarization: bool = True
     diarization_segmentation: str = "pyannote-segmentation-3.0"
     diarization_embedding: str = "3d-speaker"
+    # Seed text for Whisper's conditioning context. Only useful when it matches
+    # the show's actual opening; see transcriber.py for measurements.
+    initial_prompt: Optional[str] = None
 
     @field_validator("vault_root", mode="before")
     @classmethod
@@ -31,6 +34,7 @@ class PodcastConfig(BaseModel):
     diarization: bool
     diarization_segmentation: str
     diarization_embedding: str
+    initial_prompt: Optional[str] = None
 
 
 class _RawPodcast(BaseModel):
@@ -45,6 +49,7 @@ class _RawPodcast(BaseModel):
     diarization: Optional[bool] = None
     diarization_segmentation: Optional[str] = None
     diarization_embedding: Optional[str] = None
+    initial_prompt: Optional[str] = None
 
 
 class Config(BaseModel):
@@ -84,6 +89,11 @@ def load_config(path: Path) -> Config:
                 diarization=rp.diarization if rp.diarization is not None else defaults.diarization,
                 diarization_segmentation=rp.diarization_segmentation or defaults.diarization_segmentation,
                 diarization_embedding=rp.diarization_embedding or defaults.diarization_embedding,
+                initial_prompt=(
+                    rp.initial_prompt
+                    if rp.initial_prompt is not None
+                    else defaults.initial_prompt
+                ),
             )
         )
     return Config(defaults=defaults, podcasts=podcasts)

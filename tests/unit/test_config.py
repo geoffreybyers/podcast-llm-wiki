@@ -43,6 +43,38 @@ class TestLoadConfig:
         cfg = load_config(f)
         assert cfg.podcasts[0].stt_model == "whisper-medium"
 
+    def test_initial_prompt_defaults_to_none(self, tmp_path: Path) -> None:
+        f = tmp_path / "cfg.yaml"
+        f.write_text(
+            "podcasts:\n"
+            "  - name: P\n"
+            "    playlist_url: https://x.test\n"
+            "    lens: l\n"
+        )
+        cfg = load_config(f)
+        assert cfg.podcasts[0].initial_prompt is None
+
+    def test_per_podcast_initial_prompt(self, tmp_path: Path) -> None:
+        """Seeding only works when the prompt matches the show's own intro,
+        so it is set per-podcast rather than globally."""
+        f = tmp_path / "cfg.yaml"
+        f.write_text(
+            "defaults:\n"
+            "  initial_prompt: Generic, default.\n"
+            "podcasts:\n"
+            "  - name: P\n"
+            "    playlist_url: https://x.test\n"
+            "    lens: l\n"
+            "    initial_prompt: Welcome to Show P, where we do things.\n"
+            "  - name: Q\n"
+            "    playlist_url: https://y.test\n"
+            "    lens: l\n"
+        )
+        cfg = load_config(f)
+        assert cfg.podcasts[0].initial_prompt == "Welcome to Show P, where we do things."
+        # Q inherits the default rather than silently getting P's prompt.
+        assert cfg.podcasts[1].initial_prompt == "Generic, default."
+
     def test_explicit_vault_path_overrides_default(self, tmp_path: Path) -> None:
         f = tmp_path / "cfg.yaml"
         f.write_text(

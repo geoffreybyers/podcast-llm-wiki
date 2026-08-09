@@ -41,6 +41,7 @@ def _build_transcriber_factory(model_cache_dir: Path):
             model_name=pod.stt_model,
             device=device,
             cache_dir=model_cache_dir,
+            initial_prompt=pod.initial_prompt,
         )
         diar = (
             PyannoteDiarizer(

@@ -1,0 +1,22 @@
+# CUDA-12 torch stack. Install AFTER `pip install -e ".[dev]"` if you transcribe on an NVIDIA GPU:
+#
+#     pip install -r requirements-cuda.txt
+#
+# Why this file exists:
+#   faster-whisper runs on ctranslate2, which (as of 4.8.1, the current release)
+#   is built against CUDA 12 and dlopen()s libcublas.so.12 the first time it
+#   encodes audio. Plain `pip install torch` now resolves to a cu130 wheel, which
+#   ships libcublas.so.13 instead. The mismatch is invisible at import and at
+#   model load — WhisperModel constructs fine — and only surfaces mid-run as:
+#
+#       RuntimeError: Library libcublas.so.12 is not found or cannot be loaded
+#
+#   These are the same version numbers pip picks by default, rebuilt against
+#   CUDA 12.6. Nothing is downgraded; only the CUDA major changes.
+#
+# Revisit when ctranslate2 ships a CUDA 13 build — then plain PyPI torch works
+# and this file can be deleted.
+--index-url https://download.pytorch.org/whl/cu126
+torch==2.13.0+cu126
+torchaudio==2.11.0+cu126
+torchcodec==0.15.0+cu126

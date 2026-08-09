@@ -13,6 +13,29 @@ from faster_whisper import WhisperModel
 _CUDA_COMPUTE_TYPE_PREFERENCE = ("float16", "int8_float16", "int8_float32", "float32")
 _CPU_COMPUTE_TYPE_PREFERENCE = ("int8", "int8_float32", "float32")
 
+# On `initial_prompt` (set per-podcast in podcasts.yaml):
+#
+# Whisper inherits casing and punctuation style from its conditioning context.
+# At the cold open there is no context, so it can settle into an unpunctuated
+# lowercase mode and — because each window conditions on the previous one — stay
+# there for many minutes. Observed on a Huberman Lab episode: the first six
+# minutes had zero punctuation while the rest of the file was normal.
+#
+# `initial_prompt` fixes this, but only when it closely matches the audio's
+# actual opening. Measured on that episode (punctuation marks per 100 words):
+#
+#     no prompt                          head  0   tail 15
+#     generic punctuated sentence        head  1   tail 14   <- does not work
+#     the show's real intro boilerplate  head 15   tail 15
+#
+# So this is not "punctuated text teaches punctuation" — the prompt works by
+# giving Whisper the correct preceding context. That makes it inherently
+# podcast-specific, which is why it lives in config rather than as a global
+# default. Use the show's scripted intro; those are stable across episodes.
+#
+# Note: `condition_on_previous_text=False` also fixes the opening (head 10) but
+# costs punctuation through the body (tail 10), so it is a worse trade.
+
 
 def _pick_compute_type(device: str) -> str:
     """Pick the fastest compute_type supported by the installed ctranslate2 build.
@@ -205,9 +228,13 @@ class FasterWhisperAsr:
         model_name: str,
         device: str,
         cache_dir: Optional[Path] = None,
+        initial_prompt: Optional[str] = None,
     ) -> None:
         self.model_name = model_name
         self.device = device
+        # None (the default) means no seeding — see the note at the top of this
+        # module for why there is no useful podcast-agnostic default.
+        self.initial_prompt = initial_prompt
         # faster-whisper accepts 'cpu' or 'cuda' with a separate device_index,
         # so split off any ':N' suffix; mps falls back to cpu silently.
         if device.startswith("cuda"):
@@ -228,7 +255,10 @@ class FasterWhisperAsr:
 
     def transcribe_file(self, audio_path: Path) -> list[TranscriptSegment]:
         segments_iter, _info = self._model.transcribe(
-            str(audio_path), vad_filter=True, beam_size=5
+            str(audio_path),
+            vad_filter=True,
+            beam_size=5,
+            initial_prompt=self.initial_prompt or None,
         )
         segments: list[TranscriptSegment] = []
         for seg in segments_iter:

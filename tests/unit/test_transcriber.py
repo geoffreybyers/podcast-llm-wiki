@@ -220,6 +220,51 @@ class TestFasterWhisperAsr:
         assert call_kwargs.get("vad_filter") is True
         assert call_kwargs.get("beam_size") == 5
 
+    @patch("podcast_llm_wiki.transcriber.WhisperModel")
+    def test_no_initial_prompt_by_default(self, mock_model_cls) -> None:
+        """There is no useful podcast-agnostic seed.
+
+        A generic punctuated sentence was measured at 1 punctuation mark per 100
+        words over the opening — no better than sending nothing. Only a prompt
+        matching the show's actual intro helps, so the default is to send none.
+        """
+        mock_model = MagicMock()
+        mock_model.transcribe.return_value = (iter([]), SimpleNamespace(language="en"))
+        mock_model_cls.return_value = mock_model
+
+        asr = FasterWhisperAsr(model_name="small.en", device="cpu")
+        asr.transcribe_file(Path("/tmp/fake.wav"))
+
+        assert mock_model.transcribe.call_args.kwargs.get("initial_prompt") is None
+
+    @patch("podcast_llm_wiki.transcriber.WhisperModel")
+    def test_passes_configured_initial_prompt(self, mock_model_cls) -> None:
+        mock_model = MagicMock()
+        mock_model.transcribe.return_value = (iter([]), SimpleNamespace(language="en"))
+        mock_model_cls.return_value = mock_model
+
+        asr = FasterWhisperAsr(
+            model_name="small.en", device="cpu", initial_prompt="Welcome back, folks."
+        )
+        asr.transcribe_file(Path("/tmp/fake.wav"))
+
+        assert (
+            mock_model.transcribe.call_args.kwargs.get("initial_prompt")
+            == "Welcome back, folks."
+        )
+
+    @patch("podcast_llm_wiki.transcriber.WhisperModel")
+    def test_empty_initial_prompt_sends_none(self, mock_model_cls) -> None:
+        """An empty string from YAML must not be sent as a blank prompt."""
+        mock_model = MagicMock()
+        mock_model.transcribe.return_value = (iter([]), SimpleNamespace(language="en"))
+        mock_model_cls.return_value = mock_model
+
+        asr = FasterWhisperAsr(model_name="small.en", device="cpu", initial_prompt="")
+        asr.transcribe_file(Path("/tmp/fake.wav"))
+
+        assert mock_model.transcribe.call_args.kwargs.get("initial_prompt") is None
+
     @patch("podcast_llm_wiki.transcriber.ctranslate2")
     @patch("podcast_llm_wiki.transcriber.WhisperModel")
     def test_cpu_picks_int8_when_supported(self, mock_model_cls, mock_ct2) -> None:

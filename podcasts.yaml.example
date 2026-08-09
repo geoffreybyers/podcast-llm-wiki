@@ -23,6 +23,16 @@ defaults:
   diarization_segmentation: pyannote-segmentation-3.0
   diarization_embedding: 3d-speaker
 
+  # Optional. Seed text for Whisper's conditioning context, normally set
+  # per-podcast rather than here. Whisper sometimes locks into unpunctuated
+  # lowercase output at the cold open and stays that way for several minutes;
+  # seeding the show's scripted intro prevents it.
+  #
+  # It only works if the text closely matches the episode's actual opening —
+  # a generic punctuated sentence measured no better than sending nothing.
+  # Leave unset unless you see the problem in your transcripts.
+  # initial_prompt: null
+
 podcasts:
   - name: "Example Podcast"
     playlist_url: "https://www.youtube.com/playlist?list=PLxxxxxxxxxxxxxxxxxxxx"
@@ -35,6 +45,7 @@ podcasts:
     # Per-podcast model overrides (uncomment to change defaults):
     # stt_model: medium.en
     # diarization: false
+    # initial_prompt: "Welcome to Example Podcast, where we discuss things."
 
   - name: "Huberman Lab"
     playlist_url: "https://www.youtube.com/playlist?list=PLPNW_gerXa4Pc8S2qoUQc5e8Ir97RLuVW"

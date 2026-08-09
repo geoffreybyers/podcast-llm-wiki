@@ -53,9 +53,27 @@ git clone https://github.com/geoffreybyers/podcast-llm-wiki.git
 cd podcast-llm-wiki
 pip install -e ".[dev]"
 
+# NVIDIA GPU only — pins the CUDA 12 torch stack (see below).
+pip install -r requirements-cuda.txt
+
 cp podcasts.yaml.example podcasts.yaml
 # edit podcasts.yaml with your playlists
 ```
+
+**If you transcribe on an NVIDIA GPU, do not skip `requirements-cuda.txt`.**
+faster-whisper runs on `ctranslate2`, which is built against CUDA 12 and loads
+`libcublas.so.12` on its first encode. Plain `pip install torch` now resolves to
+a cu130 wheel shipping `libcublas.so.13`. The mismatch is invisible at import
+and at model load — the model constructs fine — and only surfaces once a real
+transcription starts, after the episode has already downloaded:
+
+```
+RuntimeError: Library libcublas.so.12 is not found or cannot be loaded
+```
+
+The pinned wheels are the same versions pip picks by default, rebuilt against
+CUDA 12.6. Nothing is downgraded. Delete the file once ctranslate2 ships a
+CUDA 13 build.
 
 ### HuggingFace access (only if you enable diarization)
 
@@ -135,10 +153,37 @@ podcasts:
   - name: "Display Name"
     playlist_url: "https://www.youtube.com/playlist?list=..."
     vault_path: ~/custom/path  # optional; defaults to vault_root/name
+    initial_prompt: "..."      # optional; see below
     lens: |
       Multi-line analytical lens guiding the /analyze-podcast prompt.
     # Any default may be overridden per-podcast.
 ```
+
+### `initial_prompt` — fixing unpunctuated openings
+
+Whisper occasionally locks into unpunctuated, all-lowercase output at an
+episode's cold open and stays that way for several minutes before recovering.
+It inherits style from its conditioning context, and at the very start there
+isn't any.
+
+Setting `initial_prompt` to the show's scripted intro fixes it. Measured on a
+Huberman Lab episode, in punctuation marks per 100 words over the first six
+minutes:
+
+| `initial_prompt` | opening | rest of episode |
+| --- | --- | --- |
+| unset | 0 | 15 |
+| a generic punctuated sentence | 1 | 14 |
+| the show's real intro text | **15** | 15 |
+
+The prompt works by supplying correct *preceding context*, not by demonstrating
+punctuation — so it must closely match what the episode actually opens with.
+A generic sentence does nothing. This is why there's no global default: use the
+show's boilerplate intro, which is stable across episodes.
+
+(`condition_on_previous_text=False` also fixes the opening, at 10, but drops the
+body to 10 as well. The prompt is the better trade, so the pipeline keeps
+conditioning on.)
 
 ## The `/analyze-podcast` slash command
 
