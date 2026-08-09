@@ -59,6 +59,66 @@ class TestCookiesFromBrowser:
         assert d._cookies_opt()["cookiesfrombrowser"][0] == "firefox"
 
 
+class TestThrottleOpts:
+    """Randomized pause before each download, to avoid IP-level 403/429.
+
+    Applied to downloads only. Playlist enumeration passes skip_download, so
+    yt-dlp would never sleep for it anyway, and adding the keys there would only
+    be misleading.
+    """
+
+    def test_defaults_are_60_to_300_seconds(self) -> None:
+        opts = Downloader(downloads_root=Path("/tmp"))._throttle_opts()
+        assert opts == {"sleep_interval": 60.0, "max_sleep_interval": 300.0}
+
+    def test_overridable(self) -> None:
+        d = Downloader(
+            downloads_root=Path("/tmp"), sleep_interval=5, max_sleep_interval=10
+        )
+        assert d._throttle_opts() == {"sleep_interval": 5.0, "max_sleep_interval": 10.0}
+
+    def test_zero_disables_sleeping(self) -> None:
+        d = Downloader(downloads_root=Path("/tmp"), sleep_interval=0, max_sleep_interval=0)
+        assert d._throttle_opts() == {}
+
+    def test_max_below_min_is_raised_to_min(self) -> None:
+        """yt-dlp requires max >= min; a bad pair would otherwise raise mid-run."""
+        d = Downloader(
+            downloads_root=Path("/tmp"), sleep_interval=120, max_sleep_interval=30
+        )
+        assert d._throttle_opts() == {"sleep_interval": 120.0, "max_sleep_interval": 120.0}
+
+    @patch("podcast_llm_wiki.downloader.YoutubeDL")
+    def test_download_passes_sleep_opts(self, mock_ydl_cls, tmp_path: Path) -> None:
+        mock_ydl = MagicMock()
+        mock_ydl.__enter__.return_value = mock_ydl
+        mock_ydl.download.return_value = 0
+        mock_ydl_cls.return_value = mock_ydl
+
+        d = Downloader(downloads_root=tmp_path)
+        ep = EpisodeMetadata(
+            episode_id="vid1", title="T", channel_title="C",
+            published_at="2026-01-01", url="https://x.test",
+        )
+        d.download_episode(ep, podcast_name="P")
+
+        opts = mock_ydl_cls.call_args.args[0]
+        assert opts["sleep_interval"] == 60.0
+        assert opts["max_sleep_interval"] == 300.0
+
+    @patch("podcast_llm_wiki.downloader.YoutubeDL")
+    def test_enumerate_does_not_sleep(self, mock_ydl_cls) -> None:
+        mock_ydl = MagicMock()
+        mock_ydl.__enter__.return_value = mock_ydl
+        mock_ydl.extract_info.return_value = {"entries": []}
+        mock_ydl_cls.return_value = mock_ydl
+
+        Downloader(downloads_root=Path("/tmp")).enumerate_playlist("https://x.test")
+
+        opts = mock_ydl_cls.call_args.args[0]
+        assert "sleep_interval" not in opts
+
+
 class TestEnumeratePlaylist:
     @patch("podcast_llm_wiki.downloader.YoutubeDL")
     def test_returns_episode_metadata_list(self, mock_ydl_cls) -> None:

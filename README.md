@@ -263,6 +263,39 @@ Multi-worker parallelism (`--workers N` with per-GPU locks) is planned but not
 yet implemented. Current runtime is single-worker. Track progress in the
 roadmap below.
 
+### Avoiding YouTube rate limits
+
+Sustained back-to-back downloads from one IP draw `HTTP Error 403: Forbidden`.
+In practice this showed up roughly 9–10 episodes into consecutive batches.
+
+By default the pipeline sleeps a random 60–300 seconds before each download,
+which breaks up the request pattern:
+
+```bash
+--sleep-interval 60 --max-sleep-interval 300   # defaults
+--sleep-interval 0  --max-sleep-interval 0     # disable
+```
+
+This is a real wall-clock cost: at the defaults a 30-episode backfill spends
+roughly 90 minutes sleeping, on top of download and transcription time. For a
+large backfill that's usually the right trade — a 403 costs a retry anyway, and
+the ledger makes resuming cheap. For a one-episode smoke test, pass `0`.
+
+Sleeping applies to downloads only; playlist enumeration is a single request.
+
+If 403s persist, `--cookies-from-browser` sends a logged-in session:
+
+```bash
+--cookies-from-browser firefox
+--cookies-from-browser "firefox:/path/to/Xyz.Profile 4"   # non-default profile
+```
+
+Pass a PROFILE when the browser's default profile isn't the one signed in to
+YouTube — otherwise yt-dlp silently falls back to it and the run stays
+anonymous. Note that cookies tie bulk downloads to that Google account, which
+carries a real risk of the account being flagged; a throwaway account avoids
+putting a real one at stake.
+
 ### Recovering from failures
 
 - `download_failed`: the row in `collected.md` records the error. Re-running

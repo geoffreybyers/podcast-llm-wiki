@@ -65,9 +65,33 @@ class Downloader:
         self,
         downloads_root: Path,
         cookies_from_browser: Optional[str] = None,
+        sleep_interval: float = 60.0,
+        max_sleep_interval: float = 300.0,
     ) -> None:
         self.downloads_root = Path(downloads_root)
         self.cookies_from_browser = cookies_from_browser
+        self.sleep_interval = float(sleep_interval)
+        self.max_sleep_interval = float(max_sleep_interval)
+
+    def _throttle_opts(self) -> dict:
+        """Randomized pause before each download, to stay under YouTube's radar.
+
+        Sustained back-to-back downloads from one IP draw HTTP 403s — observed
+        roughly 9-10 episodes into consecutive batches. yt-dlp sleeps a random
+        interval in [sleep_interval, max_sleep_interval] before each download,
+        which breaks up the machine-gun request pattern.
+
+        Costs real wall-clock: at the 60-300s default, a 30-episode backfill
+        spends around 90 minutes sleeping. Set both to 0 to disable.
+        """
+        if self.sleep_interval <= 0 and self.max_sleep_interval <= 0:
+            return {}
+        return {
+            "sleep_interval": self.sleep_interval,
+            # yt-dlp requires max >= min and raises if not; clamp rather than
+            # let a bad config pair blow up partway through a long run.
+            "max_sleep_interval": max(self.max_sleep_interval, self.sleep_interval),
+        }
 
     def _cookies_opt(self) -> dict:
         # yt-dlp expects a 4-tuple: (browser, profile, keyring, container), which
@@ -184,6 +208,7 @@ class Downloader:
             },
             **self._cookies_opt(),
             **self._ytdlp_extra_opts(),
+            **self._throttle_opts(),
         }
         with YoutubeDL(opts) as ydl:
             rc = ydl.download([episode.url])

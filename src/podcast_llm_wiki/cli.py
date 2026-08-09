@@ -98,6 +98,16 @@ def ingest(
             "default profile is not the one signed in to YouTube."
         ),
     ),
+    sleep_interval: float = typer.Option(
+        60.0,
+        "--sleep-interval",
+        help="Minimum seconds to sleep before each download. 0 (with --max-sleep-interval 0) disables.",
+    ),
+    max_sleep_interval: float = typer.Option(
+        300.0,
+        "--max-sleep-interval",
+        help="Upper bound for the randomized pre-download sleep. Raised to --sleep-interval if lower.",
+    ),
 ) -> None:
     """Run Tier 1: download new episodes and transcribe them."""
     today = __import__("datetime").date.today().isoformat()
@@ -115,6 +125,8 @@ def ingest(
     downloader = Downloader(
         downloads_root=project_root / "podcasts",
         cookies_from_browser=cookies_from_browser,
+        sleep_interval=sleep_interval,
+        max_sleep_interval=max_sleep_interval,
     )
     pipeline = Pipeline(
         project_root=project_root,
