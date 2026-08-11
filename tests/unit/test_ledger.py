@@ -123,6 +123,29 @@ class TestLedgerRecord:
         assert "analyzed" in text
         assert "download_failed" not in text
 
+    def test_record_downloaded_clears_prior_download_error(self, tmp_project: Path) -> None:
+        """A 403 that succeeds on retry must not leave its error text behind.
+
+        Transient 403s are routine during backfill; the retry recovers them. Leaving
+        the error set makes a healthy row look like a failed one forever.
+        """
+        ledger = Ledger(tmp_project)
+        ledger.ensure_initialized()
+        ledger.record_failed(_sample_record(), stage="download", error="HTTP 403")
+        ledger.record_downloaded(_sample_record())
+        text = (tmp_project / "collected.md").read_text()
+        assert "HTTP 403" not in text
+
+    def test_record_transcribed_clears_prior_error(self, tmp_project: Path) -> None:
+        """Reaching 'transcribed' means every earlier stage ultimately succeeded."""
+        ledger = Ledger(tmp_project)
+        ledger.ensure_initialized()
+        ledger.record_failed(_sample_record(), stage="transcribe", error="CUDA OOM")
+        ledger.record_transcribed("abc", "/p/abc.md")
+        text = (tmp_project / "collected.md").read_text()
+        assert "transcribed" in text
+        assert "CUDA OOM" not in text
+
     def test_is_known_episode(self, tmp_project: Path) -> None:
         ledger = Ledger(tmp_project)
         ledger.ensure_initialized()

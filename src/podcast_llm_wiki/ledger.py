@@ -123,6 +123,7 @@ class Ledger:
         else:
             existing.status = "downloaded"
             existing.downloaded_at = _now_iso()
+            existing.error = ""  # success supersedes any earlier failure on this row
         self._write_records(records)
 
     def record_transcribed(self, episode_id: str, transcription_path: str) -> None:
@@ -131,6 +132,7 @@ class Ledger:
             if r.episode_id == episode_id:
                 r.status = "transcribed"
                 r.transcribed_at = _now_iso()
+                r.error = ""  # success supersedes any earlier failure on this row
                 break
         else:
             raise KeyError(f"unknown episode_id: {episode_id}")
