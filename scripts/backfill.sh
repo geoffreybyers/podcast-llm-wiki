@@ -27,6 +27,16 @@ PODCAST="${1:?usage: backfill.sh <podcast-name> [count] [gap-seconds]}"
 COUNT="${2:-1}"
 GAP="${3:-30}"
 
+# Wall-clock ceiling per episode. One run took 11 hours for 3:09:35 of audio and
+# blocked the remaining 9 runs of the batch; comparable episodes finish in 20-30
+# minutes (3:42:35 of audio took 27). It did eventually complete, so this is a
+# slowness cliff rather than a true deadlock -- cause not established.
+#
+# 90m is roughly 3x the slowest healthy run observed. Tripping it costs one
+# episode's progress: the row stays 'downloaded', the .wav is kept, and the next
+# --resume run retries it from the top. That is much cheaper than losing a night.
+TIMEOUT="${TIMEOUT:-90m}"
+
 ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 cd "$ROOT" || exit 1
 PY="${PYTHON:-$ROOT/.venv/bin/python}"
@@ -40,10 +50,19 @@ for i in $(seq 1 "$COUNT"); do
     log="logs/backfill-$(date +%Y%m%d-%H%M%S).log"
     printf '[%s] run %d/%d -> %s\n' "$(date +%H:%M:%S)" "$i" "$COUNT" "$log"
 
-    "$PY" -m podcast_llm_wiki ingest \
+    # SIGTERM first, then SIGKILL 60s later if it ignores it (a wedged CUDA or
+    # pyannote call may not unwind on TERM alone).
+    timeout --kill-after=60s "$TIMEOUT" \
+        "$PY" -m podcast_llm_wiki ingest \
         --resume --limit 1 --podcast "$PODCAST" \
         --sleep-interval 0 --max-sleep-interval 0 > "$log" 2>&1
     rc=$?
+
+    # 124 = TERM deadline, 137 = SIGKILL followed. Surface it loudly: the batch
+    # keeps going, but a tripped timeout is a real signal worth investigating.
+    if [ "$rc" -eq 124 ] || [ "$rc" -eq 137 ]; then
+        printf '    TIMEOUT after %s -- killed, episode stays queued for retry\n' "$TIMEOUT"
+    fi
 
     # Count transcriptions rather than test for one: a --resume run legitimately
     # does more than one episode (retry a stuck row, *then* fetch a new one), and
