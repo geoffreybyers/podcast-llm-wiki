@@ -27,15 +27,20 @@ PODCAST="${1:?usage: backfill.sh <podcast-name> [count] [gap-seconds]}"
 COUNT="${2:-1}"
 GAP="${3:-30}"
 
-# Wall-clock ceiling per episode. One run took 11 hours for 3:09:35 of audio and
-# blocked the remaining 9 runs of the batch; comparable episodes finish in 20-30
-# minutes (3:42:35 of audio took 27). It did eventually complete, so this is a
-# slowness cliff rather than a true deadlock -- cause not established.
+# Stall guard. One run went silent for 11 hours mid-diarization and blocked the
+# remaining 9 runs of a 20-episode batch, so a wedged process has to be killed.
 #
-# 90m is roughly 3x the slowest healthy run observed. Tripping it costs one
-# episode's progress: the row stays 'downloaded', the .wav is kept, and the next
-# --resume run retries it from the top. That is much cheaper than losing a night.
-TIMEOUT="${TIMEOUT:-90m}"
+# Wall-clock duration is the wrong signal, and a fixed 90m ceiling proved it by
+# killing a healthy run: --resume drains the entire backlog of stuck rows in one
+# process, so after a 403-heavy stretch a run legitimately transcribed five
+# episodes and needed more than 90 minutes. Silence is what actually separates a
+# wedge from slow honest work.
+#
+# 45m of no log output is well clear of the normal gap between writes (~25m,
+# one long episode) while still catching a wedge the same night.
+STALL_SECS="${STALL_SECS:-2700}"
+POLL_SECS="${POLL_SECS:-60}"
+KILL_GRACE_SECS="${KILL_GRACE_SECS:-60}"
 
 ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 cd "$ROOT" || exit 1
@@ -50,19 +55,31 @@ for i in $(seq 1 "$COUNT"); do
     log="logs/backfill-$(date +%Y%m%d-%H%M%S).log"
     printf '[%s] run %d/%d -> %s\n' "$(date +%H:%M:%S)" "$i" "$COUNT" "$log"
 
-    # SIGTERM first, then SIGKILL 60s later if it ignores it (a wedged CUDA or
-    # pyannote call may not unwind on TERM alone).
-    timeout --kill-after=60s "$TIMEOUT" \
-        "$PY" -m podcast_llm_wiki ingest \
+    "$PY" -m podcast_llm_wiki ingest \
         --resume --limit 1 --podcast "$PODCAST" \
-        --sleep-interval 0 --max-sleep-interval 0 > "$log" 2>&1
-    rc=$?
+        --sleep-interval 0 --max-sleep-interval 0 > "$log" 2>&1 &
+    child=$!
 
-    # 124 = TERM deadline, 137 = SIGKILL followed. Surface it loudly: the batch
-    # keeps going, but a tripped timeout is a real signal worth investigating.
-    if [ "$rc" -eq 124 ] || [ "$rc" -eq 137 ]; then
-        printf '    TIMEOUT after %s -- killed, episode stays queued for retry\n' "$TIMEOUT"
-    fi
+    # Watch the log's mtime rather than the clock: progress, not elapsed time.
+    while kill -0 "$child" 2>/dev/null; do
+        sleep "$POLL_SECS"
+        kill -0 "$child" 2>/dev/null || break
+        last=$(stat -c %Y "$log" 2>/dev/null || echo 0)
+        [ $(( $(date +%s) - last )) -lt "$STALL_SECS" ] && continue
+
+        printf '    STALL: no log write in %ss -- killed, episode stays queued for retry\n' "$STALL_SECS"
+        kill -TERM "$child" 2>/dev/null
+        # A wedged CUDA or pyannote call may not unwind on TERM alone.
+        for _ in $(seq 1 "$KILL_GRACE_SECS"); do
+            kill -0 "$child" 2>/dev/null || break
+            sleep 1
+        done
+        kill -KILL "$child" 2>/dev/null
+        break
+    done
+
+    wait "$child"
+    rc=$?
 
     # Count transcriptions rather than test for one: a --resume run legitimately
     # does more than one episode (retry a stuck row, *then* fetch a new one), and
