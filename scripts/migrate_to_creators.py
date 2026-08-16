@@ -8,6 +8,7 @@ per run, so an in-flight batch would race these edits.
 from __future__ import annotations
 
 import argparse
+import re
 import sys
 from pathlib import Path
 
@@ -36,6 +37,25 @@ def rewrite_queue_paths(text: str) -> str:
     )
 
 
+def rewrite_config_keys(text: str) -> str:
+    """Rewrite YAML config keys from podcast to creator naming.
+
+    - Rewrites top-level 'podcasts:' key to 'creators:'
+    - Rewrites 'playlist_url:' field to 'source_url:' (preserving indentation)
+    - Leaves lens blocks and other content untouched
+    - Idempotent: applying twice equals applying once
+    """
+    # Rewrite top-level podcasts: key to creators:
+    # Match start of line (column 0), then podcasts:
+    text = re.sub(r"^podcasts:", "creators:", text, flags=re.MULTILINE)
+
+    # Rewrite playlist_url: to source_url: preserving indentation
+    # Match any amount of leading whitespace, then playlist_url:
+    text = re.sub(r"^(\s+)playlist_url:", r"\1source_url:", text, flags=re.MULTILINE)
+
+    return text
+
+
 def main(project_root: Path, vault_root: Path, dry_run: bool) -> int:
     moves = [
         (project_root / "podcasts.yaml", project_root / "creators.yaml"),
@@ -46,6 +66,8 @@ def main(project_root: Path, vault_root: Path, dry_run: bool) -> int:
     rewrites = [
         (project_root / "collected.md", rewrite_ledger_header),
         (project_root / "analysis_queue.md", rewrite_queue_paths),
+        (project_root / "creators.yaml", rewrite_config_keys),
+        (project_root / "creators.yaml.example", rewrite_config_keys),
     ]
 
     # Check for ambiguous state: src and dst both existing

@@ -5,6 +5,7 @@ collected.md
 analysis_queue.md
 logs/
 podcasts/
+*.bak
 
 # Worktrees (subagent-driven dev workspaces)
 .worktrees/
