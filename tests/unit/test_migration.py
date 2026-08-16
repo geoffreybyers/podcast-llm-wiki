@@ -4,9 +4,11 @@ from __future__ import annotations
 import sys
 from pathlib import Path
 
+import pytest
+
 sys.path.insert(0, str(Path(__file__).resolve().parents[2] / "scripts"))
 
-from migrate_to_creators import rewrite_ledger_header, rewrite_queue_paths
+from migrate_to_creators import rewrite_ledger_header, rewrite_queue_paths, main
 
 
 def test_rewrites_ledger_header_column() -> None:
@@ -48,3 +50,194 @@ def test_queue_rewrite_leaves_other_text_alone() -> None:
 def test_queue_rewrite_is_idempotent() -> None:
     text = "- podcasts/X/transcriptions/A.md\n"
     assert rewrite_queue_paths(rewrite_queue_paths(text)) == rewrite_queue_paths(text)
+
+
+def test_main_dry_run_performs_no_moves_or_writes(tmp_path: Path) -> None:
+    """--dry-run must not move files or write anything."""
+    project_root = tmp_path / "project"
+    project_root.mkdir()
+    vault_root = tmp_path / "vault"
+    vault_root.mkdir()
+
+    # Create source files and directories
+    (project_root / "podcasts.yaml").write_text("podcasts: config\n")
+    (project_root / "podcasts.yaml.example").write_text("example: config\n")
+    (project_root / "podcasts").mkdir()
+    (project_root / "podcasts" / "test.txt").write_text("audio data\n")
+    (vault_root / "Podcast - Huberman Lab").mkdir()
+    (vault_root / "Podcast - Huberman Lab" / "note.md").write_text("# Notes\n")
+    (project_root / "collected.md").write_text("| podcast | channelTitle |\n| --- | --- |\n")
+    (project_root / "analysis_queue.md").write_text("- podcasts/Huberman Lab/transcriptions/A.md\n")
+
+    # Run with dry-run
+    result = main(project_root, vault_root, dry_run=True)
+
+    # Verify: no moves occurred
+    assert result == 0
+    assert (project_root / "podcasts.yaml").exists()
+    assert not (project_root / "creators.yaml").exists()
+    assert (project_root / "podcasts").exists()
+    assert not (project_root / "creators").exists()
+    assert (vault_root / "Podcast - Huberman Lab").exists()
+    assert not (vault_root / "Creator - Huberman Lab").exists()
+
+    # Verify: no writes occurred
+    assert (project_root / "collected.md").read_text() == "| podcast | channelTitle |\n| --- | --- |\n"
+    assert (project_root / "analysis_queue.md").read_text() == "- podcasts/Huberman Lab/transcriptions/A.md\n"
+
+    # Verify: no backups created
+    assert not (project_root / "collected.md.bak").exists()
+    assert not (project_root / "analysis_queue.md.bak").exists()
+
+
+def test_main_real_run_moves_and_rewrites(tmp_path: Path) -> None:
+    """A real run should move files and rewrite the ledgers."""
+    project_root = tmp_path / "project"
+    project_root.mkdir()
+    vault_root = tmp_path / "vault"
+    vault_root.mkdir()
+
+    # Create source files and directories
+    (project_root / "podcasts.yaml").write_text("podcasts: config\n")
+    (project_root / "podcasts.yaml.example").write_text("example: config\n")
+    (project_root / "podcasts").mkdir()
+    (project_root / "podcasts" / "test.txt").write_text("audio data\n")
+    (vault_root / "Podcast - Huberman Lab").mkdir()
+    (vault_root / "Podcast - Huberman Lab" / "note.md").write_text("# Notes\n")
+    collected_before = "| podcast | channelTitle |\n| --- | --- |\n| Huberman Lab | Andrew |\n"
+    (project_root / "collected.md").write_text(collected_before)
+    queue_before = "- podcasts/Huberman Lab/transcriptions/A.md\n"
+    (project_root / "analysis_queue.md").write_text(queue_before)
+
+    # Run without dry-run
+    result = main(project_root, vault_root, dry_run=False)
+
+    # Verify: files were moved
+    assert result == 0
+    assert not (project_root / "podcasts.yaml").exists()
+    assert (project_root / "creators.yaml").exists()
+    assert (project_root / "creators.yaml").read_text() == "podcasts: config\n"
+    assert not (project_root / "podcasts").exists()
+    assert (project_root / "creators").exists()
+    assert (project_root / "creators" / "test.txt").read_text() == "audio data\n"
+    assert not (vault_root / "Podcast - Huberman Lab").exists()
+    assert (vault_root / "Creator - Huberman Lab").exists()
+
+    # Verify: ledgers were rewritten
+    collected_after = (project_root / "collected.md").read_text()
+    assert collected_after.startswith("| creator | channelTitle |\n")
+    assert "A podcast about podcasts" not in collected_after  # only header changed
+    queue_after = (project_root / "analysis_queue.md").read_text()
+    assert "- creators/Huberman Lab/transcriptions/A.md\n" in queue_after
+
+    # Verify: backups were created with original contents
+    assert (project_root / "collected.md.bak").exists()
+    assert (project_root / "collected.md.bak").read_text() == collected_before
+    assert (project_root / "analysis_queue.md.bak").exists()
+    assert (project_root / "analysis_queue.md.bak").read_text() == queue_before
+
+
+def test_main_rerun_after_migration_is_idempotent(tmp_path: Path) -> None:
+    """Re-running after a completed migration should be safe and return 0."""
+    project_root = tmp_path / "project"
+    project_root.mkdir()
+    vault_root = tmp_path / "vault"
+    vault_root.mkdir()
+
+    # Create already-migrated state
+    (project_root / "creators.yaml").write_text("creators: config\n")
+    (project_root / "creators.yaml.example").write_text("example: config\n")
+    (project_root / "creators").mkdir()
+    (project_root / "creators" / "test.txt").write_text("audio data\n")
+    (vault_root / "Creator - Huberman Lab").mkdir()
+    (vault_root / "Creator - Huberman Lab" / "note.md").write_text("# Notes\n")
+    collected_after_migration = "| creator | channelTitle |\n| --- | --- |\n| Huberman Lab | Andrew |\n"
+    (project_root / "collected.md").write_text(collected_after_migration)
+    queue_after_migration = "- creators/Huberman Lab/transcriptions/A.md\n"
+    (project_root / "analysis_queue.md").write_text(queue_after_migration)
+
+    # Run again
+    result = main(project_root, vault_root, dry_run=False)
+
+    # Verify: idempotent, returns 0
+    assert result == 0
+    # Nothing moved (already migrated)
+    assert (project_root / "creators.yaml").read_text() == "creators: config\n"
+    # Contents unchanged
+    assert (project_root / "collected.md").read_text() == collected_after_migration
+    assert (project_root / "analysis_queue.md").read_text() == queue_after_migration
+
+
+def test_main_ambiguous_state_returns_error(tmp_path: Path) -> None:
+    """Both src and dst existing is ambiguous and dangerous. Should error and not proceed."""
+    project_root = tmp_path / "project"
+    project_root.mkdir()
+    vault_root = tmp_path / "vault"
+    vault_root.mkdir()
+
+    # Create ambiguous state: both podcasts/ and creators/ exist
+    (project_root / "podcasts.yaml").write_text("podcasts: config\n")
+    (project_root / "creators.yaml").write_text("creators: config\n")
+    (project_root / "podcasts").mkdir()
+    (project_root / "creators").mkdir()
+    (vault_root / "Podcast - Huberman Lab").mkdir()
+    (vault_root / "Creator - Huberman Lab").mkdir()
+    collected_before = "| podcast | channelTitle |\n| --- | --- |\n"
+    (project_root / "collected.md").write_text(collected_before)
+    (project_root / "analysis_queue.md").write_text("- podcasts/X/transcriptions/A.md\n")
+
+    # Run - should error
+    result = main(project_root, vault_root, dry_run=False)
+
+    # Verify: error returned
+    assert result == 1
+
+    # Verify: no moves occurred
+    assert (project_root / "podcasts.yaml").exists()
+    assert (project_root / "creators.yaml").exists()
+    assert (project_root / "podcasts").exists()
+    assert (project_root / "creators").exists()
+    assert (vault_root / "Podcast - Huberman Lab").exists()
+    assert (vault_root / "Creator - Huberman Lab").exists()
+
+    # Verify: no rewrites occurred
+    assert (project_root / "collected.md").read_text() == collected_before
+    assert (project_root / "analysis_queue.md").read_text() == "- podcasts/X/transcriptions/A.md\n"
+
+    # Verify: no backups created
+    assert not (project_root / "collected.md.bak").exists()
+    assert not (project_root / "analysis_queue.md.bak").exists()
+
+
+def test_main_backup_created_on_rewrite(tmp_path: Path) -> None:
+    """Backups should be created with original contents before rewriting."""
+    project_root = tmp_path / "project"
+    project_root.mkdir()
+    vault_root = tmp_path / "vault"
+    vault_root.mkdir()
+
+    # Already migrated file structure
+    (project_root / "creators.yaml").mkdir(parents=True, exist_ok=True)
+    (project_root / "creators").mkdir(parents=True, exist_ok=True)
+    (vault_root / "Creator - Huberman Lab").mkdir(parents=True, exist_ok=True)
+
+    collected_content = "| podcast | channelTitle |\n| --- | --- |\n"
+    (project_root / "collected.md").write_text(collected_content)
+    queue_content = "- podcasts/X/A.md\n"
+    (project_root / "analysis_queue.md").write_text(queue_content)
+
+    # First run creates backups
+    result = main(project_root, vault_root, dry_run=False)
+    assert result == 0
+    assert (project_root / "collected.md.bak").read_text() == collected_content
+    assert (project_root / "analysis_queue.md.bak").read_text() == queue_content
+
+    # Modify the content to simulate file getting corrupted
+    collected_corrupted = "corrupted content\n"
+    (project_root / "collected.md").write_text(collected_corrupted)
+
+    # Re-run should NOT overwrite the backup
+    result = main(project_root, vault_root, dry_run=False)
+    assert result == 0
+    # Backup still has original content
+    assert (project_root / "collected.md.bak").read_text() == collected_content

@@ -11,6 +11,8 @@ import argparse
 import sys
 from pathlib import Path
 
+from podcast_llm_wiki.utils.filesystem import atomic_write
+
 LEDGER_OLD_HEADER = "| podcast | channelTitle |"
 LEDGER_NEW_HEADER = "| creator | channelTitle |"
 QUEUE_OLD_PREFIX = "- podcasts/"
@@ -46,10 +48,19 @@ def main(project_root: Path, vault_root: Path, dry_run: bool) -> int:
         (project_root / "analysis_queue.md", rewrite_queue_paths),
     ]
 
+    # Check for ambiguous state: src and dst both existing
     for src, dst in moves:
-        if dst.exists():
+        if src.exists() and dst.exists():
+            print(f"ERROR: ambiguous state - both exist: {src} and {dst}")
+            return 1
+
+    for src, dst in moves:
+        # Three-way decision per move
+        if dst.exists() and not src.exists():
+            # Genuinely already migrated
             print(f"skip (already migrated): {src.name}")
         elif not src.exists():
+            # Source missing, destination missing
             print(f"skip (missing): {src}")
         elif dry_run:
             print(f"would move: {src} -> {dst}")
@@ -68,7 +79,11 @@ def main(project_root: Path, vault_root: Path, dry_run: bool) -> int:
         elif dry_run:
             print(f"would rewrite: {path.name}")
         else:
-            path.write_text(after)
+            # Create backup with original contents if it doesn't exist
+            backup_path = path.with_suffix(path.suffix + ".bak")
+            if not backup_path.exists():
+                atomic_write(backup_path, before)
+            atomic_write(path, after)
             print(f"rewrote: {path.name}")
 
     return 0
