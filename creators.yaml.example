@@ -33,9 +33,9 @@ defaults:
   # Leave unset unless you see the problem in your transcripts.
   # initial_prompt: null
 
-podcasts:
+creators:
   - name: "Example Podcast"
-    playlist_url: "https://www.youtube.com/playlist?list=PLxxxxxxxxxxxxxxxxxxxx"
+    source_url: "https://www.youtube.com/playlist?list=PLxxxxxxxxxxxxxxxxxxxx"
     # vault_path: defaults to {vault_root}/{name}; uncomment to override.
     # vault_path: /custom/path/to/vault
     lens: |
@@ -48,7 +48,7 @@ podcasts:
     # initial_prompt: "Welcome to Example Podcast, where we discuss things."
 
   - name: "Huberman Lab"
-    playlist_url: "https://www.youtube.com/playlist?list=PLPNW_gerXa4Pc8S2qoUQc5e8Ir97RLuVW"
+    source_url: "https://www.youtube.com/playlist?list=PLPNW_gerXa4Pc8S2qoUQc5e8Ir97RLuVW"
     vault_path: "~/obsidian/Podcast - Huberman Lab"
     lens: |
       Huberman Lab provides science-based, actionable tools for optimizing

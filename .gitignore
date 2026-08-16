@@ -1,10 +1,10 @@
 # Personal config and runtime state (per spec §8)
-podcasts.yaml
+creators.yaml
 .env
 collected.md
 analysis_queue.md
 logs/
-podcasts/
+creators/
 *.bak
 
 # Worktrees (subagent-driven dev workspaces)
