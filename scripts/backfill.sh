@@ -56,7 +56,7 @@ for i in $(seq 1 "$COUNT"); do
     printf '[%s] run %d/%d -> %s\n' "$(date +%H:%M:%S)" "$i" "$COUNT" "$log"
 
     "$PY" -m podcast_llm_wiki ingest \
-        --resume --limit 1 --podcast "$PODCAST" \
+        --resume --limit 1 --creator "$PODCAST" \
         --sleep-interval 0 --max-sleep-interval 0 > "$log" 2>&1 &
     child=$!
 

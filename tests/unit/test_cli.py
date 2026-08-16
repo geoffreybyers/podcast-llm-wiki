@@ -15,6 +15,14 @@ def test_ingest_command_exists() -> None:
     assert "ingest" in result.output.lower()
 
 
+def test_ingest_help_exposes_creator_flag() -> None:
+    result = CliRunner().invoke(app, ["ingest", "--help"])
+    assert result.exit_code == 0
+    assert "--creator" in result.stdout
+    assert "--podcast" not in result.stdout
+    assert "creators.yaml" in result.stdout
+
+
 def test_ingest_command_loads_config(tmp_path: Path, monkeypatch) -> None:
     cfg_path = tmp_path / "podcasts.yaml"
     cfg_path.write_text(

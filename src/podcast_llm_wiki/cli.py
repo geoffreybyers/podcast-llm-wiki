@@ -65,13 +65,13 @@ def _build_transcriber_factory(model_cache_dir: Path):
 @app.command()
 def ingest(
     config: Path = typer.Option(
-        Path("podcasts.yaml"), "--config", help="Path to podcasts.yaml."
+        Path("creators.yaml"), "--config", help="Path to creators.yaml."
     ),
     project_root: Path = typer.Option(
-        Path("."), "--project-root", help="Project root containing podcasts/, logs/, etc."
+        Path("."), "--project-root", help="Project root containing creators/, logs/, etc."
     ),
     podcast: Optional[str] = typer.Option(
-        None, "--podcast", help="Process only this podcast (by name)."
+        None, "--creator", help="Process only this creator (by name)."
     ),
     model_cache_dir: Path = typer.Option(
         Path("~/.cache/faster-whisper").expanduser(),
