@@ -8,7 +8,7 @@ from typing import Optional
 from podcast_llm_wiki.utils.filesystem import atomic_write
 
 COLLECTED_HEADER = (
-    "| podcast | channelTitle | title | publishedAt | url | episode_id | status "
+    "| creator | channelTitle | title | publishedAt | url | episode_id | status "
     "| downloaded_at | transcribed_at | analyzed_at | error |\n"
     "| --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- |\n"
 )

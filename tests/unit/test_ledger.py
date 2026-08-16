@@ -12,7 +12,7 @@ class TestLedgerInit:
         ledger = Ledger(tmp_project)
         ledger.ensure_initialized()
         text = (tmp_project / "collected.md").read_text()
-        assert "| podcast | channelTitle |" in text
+        assert "| creator | channelTitle |" in text
         assert "| --- |" in text
 
     def test_creates_empty_queue_file(self, tmp_project: Path) -> None:
