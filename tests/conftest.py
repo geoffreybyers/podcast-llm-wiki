@@ -9,7 +9,7 @@ import pytest
 @pytest.fixture
 def tmp_project(tmp_path: Path) -> Path:
     """A temporary directory mimicking the project root layout."""
-    (tmp_path / "podcasts").mkdir()
+    (tmp_path / "creators").mkdir()
     (tmp_path / "logs").mkdir()
     return tmp_path
 

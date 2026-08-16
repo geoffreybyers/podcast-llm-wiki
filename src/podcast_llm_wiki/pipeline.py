@@ -139,7 +139,7 @@ class Pipeline:
     def _audio_path(self, podcast_name: str, episode_id: str) -> Path:
         return (
             self.project_root
-            / "podcasts"
+            / "creators"
             / podcast_name
             / "downloads"
             / f"{episode_id}.wav"
@@ -170,7 +170,7 @@ class Pipeline:
         )
         transcription_path = (
             self.project_root
-            / "podcasts"
+            / "creators"
             / pod.name
             / "transcriptions"
             / f"{base} - transcription.md"

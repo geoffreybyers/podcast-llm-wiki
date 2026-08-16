@@ -123,7 +123,7 @@ def ingest(
 
     ledger = Ledger(project_root)
     downloader = Downloader(
-        downloads_root=project_root / "podcasts",
+        downloads_root=project_root / "creators",
         cookies_from_browser=cookies_from_browser,
         sleep_interval=sleep_interval,
         max_sleep_interval=max_sleep_interval,

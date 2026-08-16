@@ -32,6 +32,19 @@ def _config(tmp_path: Path) -> Config:
     )
 
 
+def test_audio_path_lives_under_creators(tmp_project: Path) -> None:
+    p = Pipeline(
+        project_root=tmp_project,
+        config=Config(),
+        ledger=Ledger(tmp_project),
+        downloader=None,
+        transcriber_factory=lambda pod: None,
+    )
+    assert p._audio_path("Dan Koe", "abc123") == (
+        tmp_project / "creators" / "Dan Koe" / "downloads" / "abc123.wav"
+    )
+
+
 class TestPipelineIngest:
     def test_processes_one_new_episode_end_to_end(self, tmp_project: Path) -> None:
         cfg = _config(tmp_project)
@@ -45,7 +58,7 @@ class TestPipelineIngest:
             published_at="2026-04-20",
             url="https://x.test/vid1",
         )
-        downloads_dir = tmp_project / "podcasts" / "Test Podcast" / "downloads"
+        downloads_dir = tmp_project / "creators" / "Test Podcast" / "downloads"
         downloads_dir.mkdir(parents=True)
         audio_path = downloads_dir / "vid1.wav"
         audio_path.write_bytes(b"RIFF")
@@ -81,7 +94,7 @@ class TestPipelineIngest:
         assert "vid1" in text and "transcribed" in text
 
         # Transcription file written with sanitized name
-        transcriptions_dir = tmp_project / "podcasts" / "Test Podcast" / "transcriptions"
+        transcriptions_dir = tmp_project / "creators" / "Test Podcast" / "transcriptions"
         produced = list(transcriptions_dir.glob("*.md"))
         assert len(produced) == 1
         assert produced[0].name.endswith(" - transcription.md")
@@ -143,7 +156,7 @@ class TestPipelineIngest:
         ]
 
         def download_side(ep, podcast_name):
-            audio = tmp_project / "podcasts" / podcast_name / "downloads" / f"{ep.episode_id}.wav"
+            audio = tmp_project / "creators" / podcast_name / "downloads" / f"{ep.episode_id}.wav"
             audio.parent.mkdir(parents=True, exist_ok=True)
             audio.write_bytes(b"RIFF")
             return DownloadResult(metadata=ep, audio_path=audio, info_json_path=audio.with_suffix(".info.json"))
@@ -185,7 +198,7 @@ class TestPipelineIngest:
             published_at="",
             url="https://x.test/vid1",
         )
-        downloads_dir = tmp_project / "podcasts" / "Test Podcast" / "downloads"
+        downloads_dir = tmp_project / "creators" / "Test Podcast" / "downloads"
         downloads_dir.mkdir(parents=True)
         audio_path = downloads_dir / "vid1.wav"
         audio_path.write_bytes(b"RIFF")
@@ -231,7 +244,7 @@ class TestPipelineIngest:
         assert "vid1" in text and "transcribed" in text
 
         # Markdown frontmatter carries the enriched date.
-        transcriptions_dir = tmp_project / "podcasts" / "Test Podcast" / "transcriptions"
+        transcriptions_dir = tmp_project / "creators" / "Test Podcast" / "transcriptions"
         produced = list(transcriptions_dir.glob("*.md"))
         assert len(produced) == 1
         md = produced[0].read_text()
@@ -255,7 +268,7 @@ class TestPipelineIngest:
                 episode_id="vidS",
             )
         )
-        downloads_dir = tmp_project / "podcasts" / "Test Podcast" / "downloads"
+        downloads_dir = tmp_project / "creators" / "Test Podcast" / "downloads"
         downloads_dir.mkdir(parents=True)
         (downloads_dir / "vidS.wav").write_bytes(b"RIFF")
 
@@ -291,7 +304,7 @@ class TestPipelineIngest:
         text = (tmp_project / "collected.md").read_text()
         assert "vidS" in text and "transcribed" in text
         # Transcription file produced.
-        transcriptions_dir = tmp_project / "podcasts" / "Test Podcast" / "transcriptions"
+        transcriptions_dir = tmp_project / "creators" / "Test Podcast" / "transcriptions"
         produced = list(transcriptions_dir.glob("*.md"))
         assert len(produced) == 1
 
@@ -355,7 +368,7 @@ class TestPipelineIngest:
                 episode_id="vidS",
             )
         )
-        downloads_dir = tmp_project / "podcasts" / "Test Podcast" / "downloads"
+        downloads_dir = tmp_project / "creators" / "Test Podcast" / "downloads"
         downloads_dir.mkdir(parents=True)
         (downloads_dir / "vidS.wav").write_bytes(b"RIFF")
 
@@ -411,7 +424,7 @@ class TestPipelineIngest:
         def download_side(ep, podcast_name):
             if ep.episode_id == "vid1":
                 raise RuntimeError("HTTP 403")
-            audio = tmp_project / "podcasts" / podcast_name / "downloads" / f"{ep.episode_id}.wav"
+            audio = tmp_project / "creators" / podcast_name / "downloads" / f"{ep.episode_id}.wav"
             audio.parent.mkdir(parents=True, exist_ok=True)
             audio.write_bytes(b"RIFF")
             return DownloadResult(metadata=ep, audio_path=audio, info_json_path=audio.with_suffix(".info.json"))
