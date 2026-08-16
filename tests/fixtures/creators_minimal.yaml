@@ -4,8 +4,8 @@ defaults:
   stt_model: whisper-base
   diarization: true
 
-podcasts:
+creators:
   - name: "Test Podcast"
-    playlist_url: "https://www.youtube.com/playlist?list=ABC"
+    source_url: "https://www.youtube.com/playlist?list=ABC"
     lens: |
       Test analytical lens.

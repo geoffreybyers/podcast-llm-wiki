@@ -18,7 +18,7 @@ from podcast_llm_wiki.preflight import (
 def _pod(vault: Path, *, name: str = "TestPod", lens: str = "Test lens.") -> PodcastConfig:
     return PodcastConfig(
         name=name,
-        playlist_url="https://x.test",
+        source_url="https://x.test",
         lens=lens,
         vault_path=vault,
         max_backfill=5,

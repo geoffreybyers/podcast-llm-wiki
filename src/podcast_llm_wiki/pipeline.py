@@ -49,7 +49,7 @@ class Pipeline:
             transcriber = self._resume_podcast(pod, transcriber)
 
         log.info("enumerating playlist: %s", pod.name)
-        episodes = self.downloader.enumerate_playlist(pod.playlist_url)
+        episodes = self.downloader.enumerate_playlist(pod.source_url)
         new = self.downloader.filter_new(
             episodes,
             known_ids=self.ledger.known_episode_ids(),

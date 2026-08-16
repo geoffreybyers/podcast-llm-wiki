@@ -11,20 +11,20 @@ FIXTURES = Path(__file__).parent.parent / "fixtures"
 
 class TestLoadConfig:
     def test_loads_minimal_config(self) -> None:
-        cfg = load_config(FIXTURES / "podcasts_minimal.yaml")
+        cfg = load_config(FIXTURES / "creators_minimal.yaml")
         assert isinstance(cfg, Config)
         assert len(cfg.podcasts) == 1
         assert cfg.podcasts[0].name == "Test Podcast"
 
     def test_applies_defaults_to_podcasts(self) -> None:
-        cfg = load_config(FIXTURES / "podcasts_minimal.yaml")
+        cfg = load_config(FIXTURES / "creators_minimal.yaml")
         pod = cfg.podcasts[0]
         assert pod.max_backfill == 5
         assert pod.stt_model == "whisper-base"
         assert pod.diarization is True
 
     def test_vault_path_defaults_to_root_plus_name(self) -> None:
-        cfg = load_config(FIXTURES / "podcasts_minimal.yaml")
+        cfg = load_config(FIXTURES / "creators_minimal.yaml")
         pod = cfg.podcasts[0]
         assert pod.vault_path == Path("~/obsidian/Test Podcast").expanduser()
 
@@ -34,9 +34,9 @@ class TestLoadConfig:
             "defaults:\n"
             "  vault_root: ~/obsidian\n"
             "  stt_model: whisper-base\n"
-            "podcasts:\n"
+            "creators:\n"
             "  - name: P\n"
-            "    playlist_url: https://x.test\n"
+            "    source_url: https://x.test\n"
             "    lens: l\n"
             "    stt_model: whisper-medium\n"
         )
@@ -46,9 +46,9 @@ class TestLoadConfig:
     def test_initial_prompt_defaults_to_none(self, tmp_path: Path) -> None:
         f = tmp_path / "cfg.yaml"
         f.write_text(
-            "podcasts:\n"
+            "creators:\n"
             "  - name: P\n"
-            "    playlist_url: https://x.test\n"
+            "    source_url: https://x.test\n"
             "    lens: l\n"
         )
         cfg = load_config(f)
@@ -61,13 +61,13 @@ class TestLoadConfig:
         f.write_text(
             "defaults:\n"
             "  initial_prompt: Generic, default.\n"
-            "podcasts:\n"
+            "creators:\n"
             "  - name: P\n"
-            "    playlist_url: https://x.test\n"
+            "    source_url: https://x.test\n"
             "    lens: l\n"
             "    initial_prompt: Welcome to Show P, where we do things.\n"
             "  - name: Q\n"
-            "    playlist_url: https://y.test\n"
+            "    source_url: https://y.test\n"
             "    lens: l\n"
         )
         cfg = load_config(f)
@@ -80,9 +80,9 @@ class TestLoadConfig:
         f.write_text(
             "defaults:\n"
             "  vault_root: ~/obsidian\n"
-            "podcasts:\n"
+            "creators:\n"
             "  - name: P\n"
-            "    playlist_url: https://x.test\n"
+            "    source_url: https://x.test\n"
             "    lens: l\n"
             "    vault_path: /custom/path\n"
         )
@@ -93,14 +93,30 @@ class TestLoadConfig:
         f = tmp_path / "cfg.yaml"
         f.write_text(
             "defaults: {}\n"
-            "podcasts:\n"
+            "creators:\n"
             "  - name: P\n"
-            # missing playlist_url and lens
+            # missing source_url and lens
         )
         with pytest.raises(Exception):  # pydantic ValidationError or similar
             load_config(f)
 
     def test_lookup_by_name(self) -> None:
-        cfg = load_config(FIXTURES / "podcasts_minimal.yaml")
+        cfg = load_config(FIXTURES / "creators_minimal.yaml")
         assert cfg.get_podcast("Test Podcast").name == "Test Podcast"
         assert cfg.get_podcast("nope") is None
+
+    def test_loads_creators_key_with_source_url(self, tmp_path: Path) -> None:
+        p = tmp_path / "creators.yaml"
+        p.write_text(
+            "defaults:\n"
+            "  vault_root: ~/obsidian\n"
+            "creators:\n"
+            '  - name: "Dan Koe"\n'
+            '    source_url: "https://www.youtube.com/@DanKoeTalks/videos"\n'
+            "    lens: |\n"
+            "      Test lens.\n"
+        )
+        cfg = load_config(p)
+        assert len(cfg.podcasts) == 1
+        assert cfg.podcasts[0].name == "Dan Koe"
+        assert cfg.podcasts[0].source_url == "https://www.youtube.com/@DanKoeTalks/videos"

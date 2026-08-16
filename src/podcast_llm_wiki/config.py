@@ -26,7 +26,7 @@ class Defaults(BaseModel):
 
 class PodcastConfig(BaseModel):
     name: str
-    playlist_url: str
+    source_url: str
     lens: str
     vault_path: Path
     max_backfill: int
@@ -41,7 +41,7 @@ class _RawPodcast(BaseModel):
     """Shape of a podcast entry as written in YAML before defaults are applied."""
 
     name: str
-    playlist_url: str
+    source_url: str
     lens: str
     vault_path: Optional[Path] = None
     max_backfill: Optional[int] = None
@@ -64,14 +64,14 @@ class Config(BaseModel):
 
 
 def load_config(path: Path) -> Config:
-    """Load and validate a podcasts.yaml file. Applies defaults to each podcast."""
+    """Load and validate a creators.yaml file. Applies defaults to each creator."""
     raw = yaml.safe_load(Path(path).read_text())
     if raw is None:
         raw = {}
 
     defaults = Defaults(**(raw.get("defaults") or {}))
     podcasts: list[PodcastConfig] = []
-    for entry in raw.get("podcasts") or []:
+    for entry in raw.get("creators") or []:
         rp = _RawPodcast(**entry)
         vault_path = (
             Path(str(rp.vault_path)).expanduser()
@@ -81,7 +81,7 @@ def load_config(path: Path) -> Config:
         podcasts.append(
             PodcastConfig(
                 name=rp.name,
-                playlist_url=rp.playlist_url,
+                source_url=rp.source_url,
                 lens=rp.lens,
                 vault_path=vault_path,
                 max_backfill=rp.max_backfill if rp.max_backfill is not None else defaults.max_backfill,

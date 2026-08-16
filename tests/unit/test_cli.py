@@ -21,9 +21,9 @@ def test_ingest_command_loads_config(tmp_path: Path, monkeypatch) -> None:
         "defaults:\n"
         f"  vault_root: {tmp_path}/obsidian\n"
         "  max_backfill: 1\n"
-        "podcasts:\n"
+        "creators:\n"
         "  - name: T\n"
-        "    playlist_url: https://x.test\n"
+        "    source_url: https://x.test\n"
         "    lens: l\n"
     )
 

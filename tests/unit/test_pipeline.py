@@ -19,7 +19,7 @@ def _config(tmp_path: Path) -> Config:
         podcasts=[
             PodcastConfig(
                 name="Test Podcast",
-                playlist_url="https://x.test",
+                source_url="https://x.test",
                 lens="lens",
                 vault_path=tmp_path / "obsidian" / "Test Podcast",
                 max_backfill=5,
@@ -382,7 +382,7 @@ class TestPipelineIngest:
         cfg.podcasts.append(
             PodcastConfig(
                 name="Other",
-                playlist_url="https://y.test",
+                source_url="https://y.test",
                 lens="l",
                 vault_path=tmp_project / "obsidian" / "Other",
                 max_backfill=5,
