@@ -153,7 +153,13 @@ class Downloader:
                 EpisodeMetadata(
                     episode_id=str(e.get("id") or ""),
                     title=str(e.get("title") or ""),
-                    channel_title=str(e.get("channel") or e.get("uploader") or ""),
+                    channel_title=str(
+                        e.get("channel")
+                        or e.get("uploader")
+                        or info.get("channel")
+                        or info.get("uploader")
+                        or ""
+                    ),
                     published_at=_format_date(str(e.get("upload_date") or "")),
                     url=str(e.get("url") or e.get("webpage_url") or ""),
                 )

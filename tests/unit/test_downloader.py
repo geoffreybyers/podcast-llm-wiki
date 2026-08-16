@@ -178,6 +178,117 @@ class TestEnumeratePlaylist:
         episodes = d.enumerate_playlist("https://youtube.com/playlist?list=ABC")
         assert episodes == []
 
+    @patch("podcast_llm_wiki.downloader.YoutubeDL")
+    def test_entry_channel_takes_precedence(self, mock_ydl_cls) -> None:
+        """Entry-level channel should win over top-level channel (playlist behavior)."""
+        mock_ydl = MagicMock()
+        mock_ydl.__enter__.return_value = mock_ydl
+        mock_ydl.extract_info.return_value = {
+            "channel": "Top Channel",
+            "uploader": "Top Uploader",
+            "entries": [
+                {
+                    "id": "vid1",
+                    "title": "Episode One",
+                    "channel": "Entry Channel",
+                    "upload_date": "20260101",
+                    "url": "https://youtube.com/watch?v=vid1",
+                },
+            ]
+        }
+        mock_ydl_cls.return_value = mock_ydl
+
+        d = Downloader(downloads_root=Path("/tmp/dl"))
+        episodes = d.enumerate_playlist("https://youtube.com/playlist?list=ABC")
+
+        assert len(episodes) == 1
+        assert episodes[0].channel_title == "Entry Channel"
+
+    @patch("podcast_llm_wiki.downloader.YoutubeDL")
+    def test_falls_back_to_top_level_channel_when_entry_has_neither(
+        self, mock_ydl_cls
+    ) -> None:
+        """When entry has no channel/uploader, use top-level channel (channel URL case)."""
+        mock_ydl = MagicMock()
+        mock_ydl.__enter__.return_value = mock_ydl
+        mock_ydl.extract_info.return_value = {
+            "channel": "Dan Koe",
+            "uploader": "Top Uploader",
+            "entries": [
+                {
+                    "id": "vid1",
+                    "title": "The Writing System That Saved My Brain",
+                    "channel": None,
+                    "uploader": None,
+                    "upload_date": "20260101",
+                    "url": "https://youtube.com/watch?v=vid1",
+                },
+            ]
+        }
+        mock_ydl_cls.return_value = mock_ydl
+
+        d = Downloader(downloads_root=Path("/tmp/dl"))
+        episodes = d.enumerate_playlist("https://www.youtube.com/@Handle/videos")
+
+        assert len(episodes) == 1
+        assert episodes[0].channel_title == "Dan Koe"
+
+    @patch("podcast_llm_wiki.downloader.YoutubeDL")
+    def test_falls_back_to_top_level_uploader_when_no_channel(
+        self, mock_ydl_cls
+    ) -> None:
+        """When entry and top-level have no channel, use top-level uploader."""
+        mock_ydl = MagicMock()
+        mock_ydl.__enter__.return_value = mock_ydl
+        mock_ydl.extract_info.return_value = {
+            "channel": None,
+            "uploader": "Creator Name",
+            "entries": [
+                {
+                    "id": "vid1",
+                    "title": "Episode One",
+                    "channel": None,
+                    "uploader": None,
+                    "upload_date": "20260101",
+                    "url": "https://youtube.com/watch?v=vid1",
+                },
+            ]
+        }
+        mock_ydl_cls.return_value = mock_ydl
+
+        d = Downloader(downloads_root=Path("/tmp/dl"))
+        episodes = d.enumerate_playlist("https://www.youtube.com/@Handle/videos")
+
+        assert len(episodes) == 1
+        assert episodes[0].channel_title == "Creator Name"
+
+    @patch("podcast_llm_wiki.downloader.YoutubeDL")
+    def test_empty_string_when_nothing_anywhere(self, mock_ydl_cls) -> None:
+        """When no channel/uploader found anywhere, should be empty string, not crash."""
+        mock_ydl = MagicMock()
+        mock_ydl.__enter__.return_value = mock_ydl
+        mock_ydl.extract_info.return_value = {
+            "channel": None,
+            "uploader": None,
+            "entries": [
+                {
+                    "id": "vid1",
+                    "title": "Episode One",
+                    "channel": None,
+                    "uploader": None,
+                    "upload_date": "20260101",
+                    "url": "https://youtube.com/watch?v=vid1",
+                },
+            ]
+        }
+        mock_ydl_cls.return_value = mock_ydl
+
+        d = Downloader(downloads_root=Path("/tmp/dl"))
+        episodes = d.enumerate_playlist("https://youtube.com/watch?v=vid1")
+
+        assert len(episodes) == 1
+        assert episodes[0].channel_title == ""
+
 
 def _sample_episode(eid: str, title: str = "T") -> EpisodeMetadata:
     return EpisodeMetadata(
