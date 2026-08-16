@@ -61,3 +61,64 @@ creators:
       preliminary or animal studies, or Huberman's personal practice. Flag
       contradictions with prior episodes and note commercial conflicts of
       interest (sponsors, supplement lines) when relevant to a recommendation.
+
+  - name: "Dan Koe"
+    source_url: "https://www.youtube.com/@DanKoeTalks/videos"
+    vault_path: "~/obsidian/Creator - Dan Koe"
+    lens: |
+      Dan Koe covers solo business, positioning, and the mental models behind
+      one-person companies.
+
+      Extract tactics and systems with their preconditions, sequencing, and any
+      concrete numbers: pricing, posting cadence, offer structure, hours per
+      week. Capture the reasoning behind a tactic in one or two sentences so the
+      "why" survives alongside the "how."
+
+      Flag where advice assumes an audience size, capital base, or track record
+      the reader may not have — this is the most common failure mode in solo
+      business advice. Note when a claim rests only on the creator's own results.
+
+  - name: "Ali Abdaal"
+    source_url: "https://www.youtube.com/@aliabdaal/videos"
+    vault_path: "~/obsidian/Creator - Ali Abdaal"
+    lens: |
+      Ali Abdaal covers productivity systems, creator business, and study
+      technique.
+
+      Extract tactics and systems with their preconditions, sequencing, and any
+      concrete numbers: tool stacks, time budgets, revenue splits, team size.
+      Capture the reasoning in one or two sentences.
+
+      Flag where advice assumes an audience size, capital base, or track record
+      the reader may not have. Note when a productivity claim is presented as
+      research-backed and record what the underlying study actually showed.
+
+  - name: "Alex Hormozi"
+    source_url: "https://www.youtube.com/@AlexHormozi/videos"
+    vault_path: "~/obsidian/Creator - Alex Hormozi"
+    lens: |
+      Alex Hormozi covers offers, sales, and scaling service businesses.
+
+      Extract tactics and systems with their preconditions, sequencing, and any
+      concrete numbers: price points, margins, close rates, headcount, ad spend.
+      Capture the reasoning in one or two sentences.
+
+      Flag where advice assumes a capital base, existing deal flow, or risk
+      tolerance the reader may not have. Record the business type and stage a
+      tactic is meant for — advice for a $100k/yr gym rarely transfers to a
+      $10M/yr agency.
+
+  - name: "Gary Vee"
+    source_url: "https://www.youtube.com/@garyvee/videos"
+    vault_path: "~/obsidian/Creator - Gary Vee"
+    lens: |
+      Gary Vaynerchuk covers attention, social platforms, and personal brand.
+
+      Extract tactics and systems with their preconditions, sequencing, and any
+      concrete numbers: platform, format, posting volume, budget. Capture the
+      reasoning in one or two sentences.
+
+      Flag where advice assumes an audience size, capital base, or team the
+      reader may not have. Much of this material is motivational rather than
+      procedural — when a segment contains no actionable tactic, say so plainly
+      rather than manufacturing one.
