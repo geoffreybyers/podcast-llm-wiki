@@ -13,7 +13,7 @@ from faster_whisper import WhisperModel
 _CUDA_COMPUTE_TYPE_PREFERENCE = ("float16", "int8_float16", "int8_float32", "float32")
 _CPU_COMPUTE_TYPE_PREFERENCE = ("int8", "int8_float32", "float32")
 
-# On `initial_prompt` (set per-podcast in podcasts.yaml):
+# On `initial_prompt` (set per-creator in creators.yaml):
 #
 # Whisper inherits casing and punctuation style from its conditioning context.
 # At the cold open there is no context, so it can settle into an unpunctuated

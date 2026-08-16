@@ -1,6 +1,6 @@
-# Podcast Analysis Template
+# Creator Analysis Template
 
-> Canonical structure for `/analyze-podcast` output. The wiki writer parses
+> Canonical structure for `/analyze-creator` output. The wiki writer parses
 > the `## Entities`, `## Concepts`, and `## Contradictions` sections
 > programmatically using the strict ` :: ` delimiter. Any other section may be
 > edited freely; format below is the contract. Angle-bracket tokens

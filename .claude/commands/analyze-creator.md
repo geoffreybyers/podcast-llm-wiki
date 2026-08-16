@@ -1,10 +1,10 @@
 ---
-description: Orchestrates analysis of one or more pending podcast transcriptions. Each episode runs in its own `podcast-analyzer` subagent so the main context window stays clean. Serial execution (no queue/ledger races).
+description: Orchestrates analysis of one or more pending creator transcriptions. Each episode runs in its own `creator-analyzer` subagent so the main context window stays clean. Serial execution (no queue/ledger races).
 ---
 
-# /analyze-podcast
+# /analyze-creator
 
-You are a **thin orchestrator**. The actual per-episode work — reading the transcription, generating the analysis, updating the vault, updating the ledger — lives in the `podcast-analyzer` subagent. Your job is to pick targets from the queue and dispatch.
+You are a **thin orchestrator**. The actual per-episode work — reading the transcription, generating the analysis, updating the vault, updating the ledger — lives in the `creator-analyzer` subagent. Your job is to pick targets from the queue and dispatch.
 
 ## Arguments
 
@@ -25,11 +25,11 @@ Do NOT read any transcription file in the orchestrator. Just hand the path to th
 
 ### 2. Dispatch subagents serially
 
-For each target path, in order, call the `podcast-analyzer` subagent:
+For each target path, in order, call the `creator-analyzer` subagent:
 
 ```
 Agent(
-  subagent_type="podcast-analyzer",
+  subagent_type="creator-analyzer",
   description="Analyze <short title>",
   prompt="""
 transcription_path: <relative path>

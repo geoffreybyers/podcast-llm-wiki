@@ -7,7 +7,7 @@
 
 ## Domain
 
-This wiki covers the **{{podcast_name}}** podcast: episodes, the entities
+This wiki covers content from **{{podcast_name}}**: episodes, the entities
 (people, organizations, studies, products) cited within them, and the
 concepts (ideas, mechanisms, frameworks) discussed.
 
@@ -78,7 +78,7 @@ here first.
 - **Create an entity/concept page** when mentioned in 2+ episodes OR central
   to one episode.
 - **Add to existing page** when a new episode mentions an existing entity.
-- **DON'T create a page** for passing mentions or things outside this podcast's domain.
+- **DON'T create a page** for passing mentions or things outside this creator's domain.
 - **Split a page** when it exceeds ~200 lines.
 
 ## Update Policy

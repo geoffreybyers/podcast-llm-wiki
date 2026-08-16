@@ -1,6 +1,6 @@
 ---
-name: podcast-analyzer
-description: Analyzes ONE podcast transcription end-to-end — reads the transcription, generates a structured analysis under the per-podcast lens, updates the corresponding Obsidian vault following Karpathy LLM Wiki conventions, and marks the episode analyzed in the ledger. The parent orchestrator must specify the exact transcription path to process. Returns a short summary; does not leak the transcription body back to the parent context.
+name: creator-analyzer
+description: Analyzes ONE creator transcription end-to-end — reads the transcription, generates a structured analysis under the per-creator lens, updates the corresponding Obsidian vault following Karpathy LLM Wiki conventions, and marks the episode analyzed in the ledger. The parent orchestrator must specify the exact transcription path to process. Returns a short summary; does not leak the transcription body back to the parent context.
 tools: Read, Write, Edit, Bash, Glob, Grep
 ---
 
@@ -13,7 +13,7 @@ You are launched with the project root as your current working directory. All re
 ## Input (from parent prompt)
 
 The parent will give you:
-- `transcription_path` — a **relative** path like `podcasts/<podcast>/transcriptions/<…>-transcription.md`.
+- `transcription_path` — a **relative** path like `creators/<creator>/transcriptions/<…>-transcription.md`.
 
 That path is the sole input. Everything else you derive from the file tree.
 
@@ -22,7 +22,7 @@ That path is the sole input. Everything else you derive from the file tree.
 ### 1. Read context
 
 Parallel reads:
-- `podcasts.yaml` — find the entry whose `name` matches `<podcast>` (the parent of `transcriptions/`). Extract `lens` and `vault_path`.
+- `creators.yaml` — find the entry whose `name` matches `<creator>` (the parent of `transcriptions/`). Extract `lens` and `vault_path`.
 - The transcription file — frontmatter has `episode_id`, `channelTitle`, `title`, `publishedAt`, `url`.
 - `<vault_path>/SCHEMA.md` if it exists (tag taxonomy).
 - `<vault_path>/index.md` if it exists (existing entities/concepts — informs page-creation threshold).
@@ -31,7 +31,7 @@ Expand `~` in `vault_path` yourself when passing it to Python.
 
 ### 2. Generate the analysis
 
-Apply the podcast's `lens` plus the canonical template. Produce ONE markdown file with these sections, in this order:
+Apply the creator's `lens` plus the canonical template. Produce ONE markdown file with these sections, in this order:
 
 - `# <channelTitle> — <title>`
 - `## TL;DR` — three sentences
@@ -54,7 +54,7 @@ Conservative page-creation threshold: only list an entity or concept in its sect
 
 ### 3. Write the analysis file
 
-Path: `podcasts/<podcast>/analyses/<channelTitle> - <title> - analysis.md`, sanitized the same way the transcription filename is (strip slashes, collapse to ≤200 chars, append `episode_id` if truncated).
+Path: `creators/<creator>/analyses/<channelTitle> - <title> - analysis.md`, sanitized the same way the transcription filename is (strip slashes, collapse to ≤200 chars, append `episode_id` if truncated).
 
 Use a single Write call. Do this **before** touching the vault so a vault-update failure does not lose the analysis.
 
@@ -84,13 +84,13 @@ from pathlib import Path
 from podcast_llm_wiki.wiki.vault import create_vault_skeleton
 create_vault_skeleton(
     Path("<expanded vault_path>"),
-    podcast_name="<podcast>",
-    lens="""<lens from podcasts.yaml>""",
+    podcast_name="<creator>",
+    lens="""<lens from creators.yaml>""",
 )
 PY
 ```
 
-Note "created skeleton" in your summary.
+Note "created skeleton" in your summary. (`create_vault_skeleton`'s keyword argument is still named `podcast_name` in the underlying API — pass the creator's name as its value.)
 
 ### 6. Update the vault
 
@@ -166,7 +166,7 @@ If this raises, the analysis file is still on disk — do NOT touch the ledger o
 from pathlib import Path
 from podcast_llm_wiki.ledger import Ledger
 l = Ledger(Path.cwd())
-rel = "<relative transcription_path, e.g. podcasts/Huberman Lab/transcriptions/....md>"
+rel = "<relative transcription_path, e.g. creators/Huberman Lab/transcriptions/....md>"
 l.record_analyzed(episode_id="<episode_id>", transcription_path=rel)
 # Defensive: record_analyzed calls queue_remove(path) with whatever you pass.
 # The queue stores RELATIVE paths; an absolute path silently no-ops.
@@ -186,7 +186,7 @@ Success:
 
 ```
 ✓ <channelTitle> — <title> (<episode_id>)
-  podcast: <podcast>
+  creator: <creator>
   vault: <vault_path>
   entities: N   concepts: M   files touched: K
   contradictions_created: N   verify_todos: M

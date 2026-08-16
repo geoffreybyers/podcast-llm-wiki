@@ -1,7 +1,7 @@
 # podcast-llm-wiki
 
-Ingest YouTube podcast playlists, transcribe locally with diarization, and
-compound the results into a per-podcast [Karpathy-style LLM Wiki](https://gist.github.com/karpathy/442a6bf555914893e9891c11519de94f)
+Ingest YouTube creator playlists, transcribe locally with diarization, and
+compound the results into a per-creator [Karpathy-style LLM Wiki](https://gist.github.com/karpathy/442a6bf555914893e9891c11519de94f)
 inside an Obsidian vault.
 
 ![Obsidian graph view of a vault after several Huberman Lab episodes — episodes, entities, and concepts emerge as interlinked nodes.](docs/images/vault-graph.png)
@@ -17,7 +17,7 @@ inside an Obsidian vault.
                                │
                                ▼
 ┌──── TIER 2: HUMAN-IN-LOOP (Claude Code session) ──────────────┐
-│  /analyze-podcast → structured analysis + Obsidian vault      │
+│  /analyze-creator → structured analysis + Obsidian vault      │
 │  update (entities, concepts, episodes, index, log)            │
 └────────────────────────────────────────────────────────────────┘
 ```
@@ -33,7 +33,7 @@ Most podcast tooling produces one-off summaries that vanish after you read
 them. The Karpathy LLM Wiki pattern compounds knowledge: every new episode
 adds entities, concepts, and cross-references to a personal knowledge base
 that grows more useful over time. This project applies that pattern to
-podcasts: each episode you ingest enriches the vault, surfaces contradictions
+creators: each episode you ingest enriches the vault, surfaces contradictions
 across episodes, and builds a graph of how the topics interrelate.
 
 ## Quickstart
@@ -56,8 +56,8 @@ pip install -e ".[dev]"
 # NVIDIA GPU only — pins the CUDA 12 torch stack (see below).
 pip install -r requirements-cuda.txt
 
-cp podcasts.yaml.example podcasts.yaml
-# edit podcasts.yaml with your playlists
+cp creators.yaml.example creators.yaml
+# edit creators.yaml with your playlists
 ```
 
 **If you transcribe on an NVIDIA GPU, do not skip `requirements-cuda.txt`.**
@@ -111,11 +111,11 @@ crashes with `GatedRepoError` on first use.
 ### First run (smoke test on one episode)
 
 ```bash
-python -m podcast_llm_wiki ingest --limit 1 --podcast "Your Podcast Name"
+python -m podcast_llm_wiki ingest --limit 1 --creator "Your Creator Name"
 ```
 
-`--limit 1` caps each podcast at one new episode per run. Combined with
-`--podcast` (which scopes the run to a single entry from `podcasts.yaml`),
+`--limit 1` caps each creator at one new episode per run. Combined with
+`--creator` (which scopes the run to a single entry from `creators.yaml`),
 this downloads exactly one episode, transcribes it (slow on CPU; ~real-time
 on a modest GPU), and adds it to `collected.md` and `analysis_queue.md`.
 
@@ -129,16 +129,16 @@ claude  # opens Claude Code in the project directory
 Then in the Claude Code session:
 
 ```
-/analyze-podcast
+/analyze-creator
 ```
 
-The first time you run this for a podcast, it creates the Obsidian vault
-under `~/obsidian/<Podcast Name>/`. Open that directory in Obsidian to
+The first time you run this for a creator, it creates the Obsidian vault
+under `~/obsidian/<Creator Name>/`. Open that directory in Obsidian to
 browse the wiki.
 
 ## Configuration reference
 
-See `podcasts.yaml.example` for the annotated schema. Top-level structure:
+See `creators.yaml.example` for the annotated schema. Top-level structure:
 
 ```yaml
 defaults:
@@ -149,14 +149,14 @@ defaults:
   diarization_segmentation: pyannote-segmentation-3.0
   diarization_embedding: 3d-speaker
 
-podcasts:
+creators:
   - name: "Display Name"
-    playlist_url: "https://www.youtube.com/playlist?list=..."
+    source_url: "https://www.youtube.com/playlist?list=..."
     vault_path: ~/custom/path  # optional; defaults to vault_root/name
     initial_prompt: "..."      # optional; see below
     lens: |
-      Multi-line analytical lens guiding the /analyze-podcast prompt.
-    # Any default may be overridden per-podcast.
+      Multi-line analytical lens guiding the /analyze-creator prompt.
+    # Any default may be overridden per-creator.
 ```
 
 ### `initial_prompt` — fixing unpunctuated openings
@@ -185,21 +185,21 @@ show's boilerplate intro, which is stable across episodes.
 body to 10 as well. The prompt is the better trade, so the pipeline keeps
 conditioning on.)
 
-## The `/analyze-podcast` slash command
+## The `/analyze-creator` slash command
 
 When run in Claude Code at the project root:
 
-- `/analyze-podcast` — pop and analyze the next queued transcription (1 episode).
-- `/analyze-podcast 5` — analyze the next 5.
-- `/analyze-podcast --match huberman-sleep` — find a queued transcription
+- `/analyze-creator` — pop and analyze the next queued transcription (1 episode).
+- `/analyze-creator 5` — analyze the next 5.
+- `/analyze-creator --match huberman-sleep` — find a queued transcription
   whose filename matches `huberman-sleep` and analyze it.
 
 The slash command:
 
-1. Reads the per-podcast lens from `podcasts.yaml`.
+1. Reads the per-creator lens from `creators.yaml`.
 2. Generates a structured analysis (TL;DR, Key Insights, Critical Pass with
    1–3 steelmans, strict-format Entities/Concepts, Follow-ups).
-3. Writes the analysis file to `podcasts/<podcast>/analyses/`.
+3. Writes the analysis file to `creators/<creator>/analyses/`.
 4. Updates the Obsidian vault: copies the transcription to `raw/transcripts/`,
    writes the episode page, upserts entity/concept pages, updates `index.md`
    and `log.md`.
@@ -211,15 +211,15 @@ The lens is a free-text fragment prepended to the analysis prompt. It should
 say:
 
 - The dominant frame for insights (e.g. "biological mechanisms with evidence quality").
-- What's signal vs. noise for this podcast (e.g. "panel disagreements ARE the signal").
-- Per-podcast extraction rules (e.g. "for guests, capture formative experiences").
+- What's signal vs. noise for this creator (e.g. "panel disagreements ARE the signal").
+- Per-creator extraction rules (e.g. "for guests, capture formative experiences").
 
-See `podcasts.yaml.example` for a generic starting point. Iterate based on
+See `creators.yaml.example` for a generic starting point. Iterate based on
 the first 2–3 analyses.
 
 ## Wiki structure
 
-Each podcast gets its own Obsidian vault following the Karpathy LLM Wiki
+Each creator gets its own Obsidian vault following the Karpathy LLM Wiki
 pattern with one addition (`episodes/`):
 
 ```
@@ -304,13 +304,13 @@ putting a real one at stake.
   the episode for manual review.
 - Re-do an analysis: delete the analysis file, clear the `analyzed_at` field
   in `collected.md` for that row, re-add the transcription path to
-  `analysis_queue.md`, then `/analyze-podcast`.
+  `analysis_queue.md`, then `/analyze-creator`.
 
 ## Roadmap / non-goals
 
 **Planned but not built yet:**
 - `/lint-vault` slash command (orphan pages, broken wikilinks, etc.)
-- Cross-vault meta-vault for cross-podcast synthesis
+- Cross-vault meta-vault for cross-creator synthesis
 
 **Explicit non-goals:**
 - Web UI / TUI / dashboard. `collected.md` opened in Obsidian is the dashboard.
@@ -323,6 +323,6 @@ putting a real one at stake.
 MIT. See `LICENSE`.
 
 **Use responsibly:** `yt-dlp` may violate YouTube's ToS depending on
-jurisdiction. Transcripts of copyrighted podcasts are for personal use only;
-do not redistribute. The `pyannote/speaker-diarization-3.1` model has an
+jurisdiction. Transcripts of copyrighted creator content are for personal use
+only; do not redistribute. The `pyannote/speaker-diarization-3.1` model has an
 academic license requiring HuggingFace acceptance.
