@@ -32,8 +32,8 @@ mass ingest.
 **Dan Koe only (163 videos), taken end-to-end through ingest _and_ analysis**,
 before committing to the other three. He is the smallest catalogue and the
 cheapest way to validate the rename and — more importantly — the analysis path,
-which has never been run: 380 Huberman transcripts exist and zero have been
-analyzed.
+which has never been run: 376 Huberman transcripts exist as of writing (still
+rising until the backfill completes) and **zero** have been analyzed.
 
 All four creators are registered in config now, because that was the ask. Only
 Dan Koe is ingested.
@@ -42,7 +42,10 @@ Dan Koe is ingested.
 
 Strictly ordered; step 2 must not overlap step 1.
 
-1. Current Huberman backfill finishes (in flight, 39 episodes remaining).
+1. Current Huberman backfill finishes (in flight; 39 of 419 remaining at time
+   of writing). The migration rewrites `collected.md` and `analysis_queue.md`,
+   which that run is actively appending to, so overlapping the two would corrupt
+   both.
 2. Rename + data migration, committed with tests.
 3. Register all four creators; ingest Dan Koe only.
 4. Run Dan Koe through analysis end-to-end.
