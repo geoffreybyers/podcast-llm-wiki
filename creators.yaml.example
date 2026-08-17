@@ -122,3 +122,41 @@ creators:
       reader may not have. Much of this material is motivational rather than
       procedural — when a segment contains no actionable tactic, say so plainly
       rather than manufacturing one.
+
+  - name: "Naval Ravikant"
+    source_url: "https://www.youtube.com/@NavalR/videos"
+    vault_path: "~/obsidian/Creator - Naval Ravikant"
+    lens: |
+      Naval Ravikant covers wealth creation, leverage, judgment, and happiness.
+
+      Extract tactics and systems with their preconditions, sequencing, and any
+      concrete numbers: equity vs salary, forms of leverage, time horizons.
+      Capture the reasoning in one or two sentences.
+
+      Flag where advice assumes capital, specific knowledge, or a risk tolerance
+      the reader may not have. This material is principles-first rather than
+      procedural — when a segment offers a mental model with no actionable step,
+      record the model plainly instead of inventing a tactic for it.
+
+      Much of this channel is short clips excerpted from a few long-form talks.
+      When an episode restates material already in the vault, link the existing
+      note rather than duplicating it.
+
+  - name: "Jordan B Peterson"
+    source_url: "https://www.youtube.com/@JordanBPeterson/videos"
+    vault_path: "~/obsidian/Creator - Jordan B Peterson"
+    lens: |
+      Jordan Peterson covers psychology, personality, meaning, and responsibility,
+      largely through lectures and long-form interviews.
+
+      Extract tactics and systems with their preconditions, sequencing, and any
+      concrete numbers: protocol steps, timeframes, assessment instruments.
+      Capture the reasoning in one or two sentences.
+
+      Distinguish three things that are easy to conflate here: findings from
+      peer-reviewed psychology, interpretation of myth and literature, and
+      political or cultural opinion. Label which register a claim belongs to,
+      and where a clinical claim is made, note the evidence offered for it.
+
+      Where a segment is lecture or commentary with no actionable step, say so
+      plainly rather than manufacturing one.
