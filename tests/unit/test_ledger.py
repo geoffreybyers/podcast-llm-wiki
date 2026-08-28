@@ -234,3 +234,64 @@ class TestQueueOps:
         ledger.record_transcribed("b", "/p/b.md")
         ledger.queue_remove("/p/a.md")
         assert ledger.queue_peek() == "/p/b.md"
+
+
+# Every character str.splitlines() treats as a line boundary. Any of these
+# surviving into a cell splits one ledger row into two on the next read.
+LINE_BOUNDARY_CHARS = [
+    "\n", "\r", "\v", "\f", "\x1c", "\x1d", "\x1e", "\x85", " ", " ",
+]
+
+
+class TestLedgerCellEscaping:
+    """A cell value must never be able to terminate its own row.
+
+    yt-dlp embeds \\r in its retry progress output, so `error=str(exc)` carries
+    carriage returns into the ledger. Because the ledger is a full
+    read-modify-rewrite, an unescaped boundary char splits the row on the NEXT
+    read and `from_row()` pads the orphaned tail into a phantom record.
+    """
+
+    @pytest.mark.parametrize("char", LINE_BOUNDARY_CHARS)
+    def test_boundary_char_in_error_does_not_create_phantom_row(
+        self, tmp_project: Path, char: str
+    ) -> None:
+        ledger = Ledger(tmp_project)
+        ledger.ensure_initialized()
+        ledger.record_failed(
+            _sample_record(episode_id="abc"),
+            stage="download",
+            error=f"ERROR: unable to download{char}[download] Got error: no DNS",
+        )
+        # A second write forces the read-modify-write cycle that re-parses the file.
+        ledger.record_downloaded(_sample_record(episode_id="xyz", title="Other"))
+
+        assert ledger.known_episode_ids() == {"abc", "xyz"}
+
+    @pytest.mark.parametrize("char", LINE_BOUNDARY_CHARS)
+    def test_boundary_char_in_title_does_not_create_phantom_row(
+        self, tmp_project: Path, char: str
+    ) -> None:
+        ledger = Ledger(tmp_project)
+        ledger.ensure_initialized()
+        ledger.record_downloaded(_sample_record(episode_id="abc", title=f"A{char}B"))
+        ledger.record_downloaded(_sample_record(episode_id="xyz", title="Other"))
+
+        assert ledger.known_episode_ids() == {"abc", "xyz"}
+
+    def test_error_text_after_carriage_return_is_preserved(
+        self, tmp_project: Path
+    ) -> None:
+        """The tail of the message must survive, not be truncated at the \\r."""
+        ledger = Ledger(tmp_project)
+        ledger.ensure_initialized()
+        ledger.record_failed(
+            _sample_record(episode_id="abc"),
+            stage="download",
+            error="ERROR: unable to download\r[download] Got error: no DNS",
+        )
+        ledger.record_downloaded(_sample_record(episode_id="xyz", title="Other"))
+
+        rec = next(r for r in ledger._read_records() if r.episode_id == "abc")
+        assert "unable to download" in rec.error
+        assert "Got error: no DNS" in rec.error

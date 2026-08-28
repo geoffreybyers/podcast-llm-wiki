@@ -18,9 +18,20 @@ def _now_iso() -> str:
     return datetime.now(timezone.utc).isoformat(timespec="seconds")
 
 
+# Every character str.splitlines() treats as a line boundary. The ledger is a
+# full read-modify-rewrite, so any of these reaching the file splits one row in
+# two on the next read, and from_row() pads the orphaned tail into a phantom
+# record that is then written back as a well-formed row -- permanently, and
+# invisibly to any column-count check. yt-dlp embeds \r in its retry progress
+# output, so error text carries them in practice.
+_LINE_BOUNDARIES = str.maketrans(
+    {c: " " for c in "\n\r\v\f\x1c\x1d\x1e\x85\u2028\u2029"}
+)
+
+
 def _escape_cell(value: str) -> str:
-    """Escape pipe and newline so the value fits in a single markdown table cell."""
-    return value.replace("|", "\\|").replace("\n", " ").strip()
+    """Escape pipe and every line boundary so the value fits in a single cell."""
+    return value.replace("|", "\\|").translate(_LINE_BOUNDARIES).strip()
 
 
 @dataclass
