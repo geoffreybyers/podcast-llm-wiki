@@ -129,9 +129,35 @@ class Downloader:
         # Enable JS runtime + remote n-sig solver. No-op until YouTube issues
         # an n-challenge; when it does (common for newer videos), downloads
         # 404 with "Requested format is not available" without these.
+        #
+        # player_client=web_embedded pins the one client that still hands back
+        # real format URLs. On 2026-08-18 the default client stack stopped
+        # working in two different ways at once:
+        #
+        #   anonymous -> media CDN 403s (an IP-wide gate; every modern video,
+        #     any channel, all player_clients)
+        #   signed in -> YouTube forces SABR streaming and binds a GVS PO token
+        #     to the video id. yt-dlp ships no PO token provider, so every
+        #     format comes back without a URL and extraction dies with
+        #     "The page needs to be reloaded" (yt-dlp issue #12482).
+        #
+        # web_embedded sidestepped both and needed no cookies -- but it cannot
+        # fetch videos whose owner disabled embedding ("Playback on other
+        # websites has been disabled"). That is rare on some channels and
+        # endemic on others: it killed 47 of the first 96 Alex Hormozi videos
+        # on 2026-08-21 and stalled the backfill completely.
+        #
+        # mweb handles embed-disabled videos, "Video unavailable", and the IP
+        # gate alike -- but only once a PO token provider is installed
+        # (bgutil-ytdlp-pot-provider plus its built Node server; without it,
+        # mweb returns "Requested format is not available"). web_embedded stays
+        # as a fallback for anything mweb cannot resolve.
         return {
             "js_runtimes": {"node": {}},
             "remote_components": ["ejs:github"],
+            "extractor_args": {
+                "youtube": {"player_client": ["mweb", "web_embedded"]}
+            },
         }
 
     def enumerate_playlist(self, playlist_url: str) -> list[EpisodeMetadata]:

@@ -20,6 +20,13 @@
 #
 # Downloads run with sleeping disabled -- the gap between processes is the
 # pacing. Raise GAP if 403s reappear.
+#
+# COOKIES (env, optional): a yt-dlp browser spec forwarded to
+# --cookies-from-browser, e.g. COOKIES="brave:Profile 8". YouTube's bot gate
+# went IP-wide on 2026-08-17 and blocked every modern video regardless of
+# channel; anonymous downloads 403 at the media CDN no matter which
+# player_client is used. Signed-in cookies are the only thing that got past it.
+# Unset means anonymous, exactly as before.
 
 set -uo pipefail
 
@@ -57,6 +64,7 @@ for i in $(seq 1 "$COUNT"); do
 
     "$PY" -m podcast_llm_wiki ingest \
         --resume --limit 1 --creator "$PODCAST" \
+        ${COOKIES:+--cookies-from-browser "$COOKIES"} \
         --sleep-interval 0 --max-sleep-interval 0 > "$log" 2>&1 &
     child=$!
 
