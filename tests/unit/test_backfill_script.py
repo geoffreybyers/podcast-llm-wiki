@@ -93,3 +93,55 @@ def test_lets_a_slow_but_writing_run_finish(tmp_path: Path, clean_logs) -> None:
 
     assert "STALL" not in result.stdout, result.stdout
     assert "exited rc=" not in result.stdout, result.stdout
+
+
+class TestStallAllowanceScalesWithEpisodeLength:
+    """A flat 45m silence window is wrong for a 10h51m episode.
+
+    Gary Vee's "How To Master Social Media Marketing" (4pL7AUjgWL4) is 10h51m of
+    audio. faster-whisper logs nothing between "Detected language" and the end
+    of the transcript, so the run looked silent for far longer than 2700s and
+    was killed for it -- three times, on runs 752, 753 and 754. The episode
+    stayed queued, so the next run picked the same one and the job made no
+    further progress until the guard stopped it.
+
+    Silence is still the right signal; it just has to be measured against how
+    much audio the run actually announced. Observed throughput on this box is
+    6-7x realtime including download, so a floor of 2x leaves a wide margin
+    while still bounding a genuine wedge.
+    """
+
+    def test_long_episode_survives_the_flat_window(self, tmp_path: Path, clean_logs) -> None:
+        fake = _fake_cli(
+            tmp_path,
+            "long",
+            'echo "Processing audio with duration 10:51:03.092"\nsleep 6\n',
+        )
+
+        result = _run_backfill(fake, STALL_SECS=3)
+
+        assert "STALL" not in result.stdout, result.stdout
+
+    def test_short_episode_keeps_the_flat_floor(self, tmp_path: Path, clean_logs) -> None:
+        """Scaling must never shorten the window below the configured floor."""
+        fake = _fake_cli(
+            tmp_path,
+            "short",
+            'echo "Processing audio with duration 00:04.000"\nsleep 30\n',
+        )
+
+        result = _run_backfill(fake, STALL_SECS=3)
+
+        assert "STALL" in result.stdout, result.stdout
+
+    def test_a_wedge_is_still_caught_on_a_long_episode(self, tmp_path: Path, clean_logs) -> None:
+        """The allowance is generous, not unbounded -- 11h of silence still dies."""
+        fake = _fake_cli(
+            tmp_path,
+            "wedged",
+            'echo "Processing audio with duration 00:20.000"\nsleep 40\n',
+        )
+
+        result = _run_backfill(fake, STALL_SECS=3, STALL_SPEED_FLOOR=2)
+
+        assert "STALL" in result.stdout, result.stdout

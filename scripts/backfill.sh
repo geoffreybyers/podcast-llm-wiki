@@ -49,6 +49,37 @@ STALL_SECS="${STALL_SECS:-2700}"
 POLL_SECS="${POLL_SECS:-60}"
 KILL_GRACE_SECS="${KILL_GRACE_SECS:-60}"
 
+# ...but 45m is not enough for every episode. faster-whisper writes nothing
+# between "Detected language" and the finished transcript, so on a long enough
+# file a perfectly healthy run is silent for hours. Gary Vee's "How To Master
+# Social Media Marketing" is 10h51m; runs 752, 753 and 754 each transcribed it
+# for 45m, got killed, and left it queued for the next run to start over.
+#
+# So the window scales with the audio the run announced: a run gets at least
+# STALL_SECS, and at least as long as transcribing at STALL_SPEED_FLOOR x
+# realtime would take. Measured throughput here is 6-7x realtime including
+# download, so a floor of 2x is roughly a 3x margin -- generous enough to never
+# kill honest work, tight enough that an 11h wedge still dies within a shift.
+STALL_SPEED_FLOOR="${STALL_SPEED_FLOOR:-2}"
+
+# Seconds of silence this run is allowed, given what it has announced so far.
+stall_allowance() {
+    local log="$1" dur secs scaled
+    dur=$(grep -o "Processing audio with duration [0-9:.]*" "$log" 2>/dev/null |
+          tail -1 | awk '{print $5}')
+    if [ -n "$dur" ]; then
+        # "10:51:03.092" and "01:45.291" are both valid; fold right-to-left.
+        secs=$(awk -v d="$dur" 'BEGIN{n=split(d,p,":"); s=0;
+                                      for(i=1;i<=n;i++) s=s*60+p[i]; printf "%d", s}')
+        scaled=$(( secs / STALL_SPEED_FLOOR ))
+        if [ "$scaled" -gt "$STALL_SECS" ]; then
+            echo "$scaled"
+            return
+        fi
+    fi
+    echo "$STALL_SECS"
+}
+
 ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 cd "$ROOT" || exit 1
 PY="${PYTHON:-$ROOT/.venv/bin/python}"
@@ -73,9 +104,12 @@ for i in $(seq 1 "$COUNT"); do
         sleep "$POLL_SECS"
         kill -0 "$child" 2>/dev/null || break
         last=$(stat -c %Y "$log" 2>/dev/null || echo 0)
-        [ $(( $(date +%s) - last )) -lt "$STALL_SECS" ] && continue
+        # Recomputed every poll: the duration line only appears once the run
+        # reaches the audio, which is after the download.
+        allow=$(stall_allowance "$log")
+        [ $(( $(date +%s) - last )) -lt "$allow" ] && continue
 
-        printf '    STALL: no log write in %ss -- killed, episode stays queued for retry\n' "$STALL_SECS"
+        printf '    STALL: no log write in %ss -- killed, episode stays queued for retry\n' "$allow"
         kill -TERM "$child" 2>/dev/null
         # A wedged CUDA or pyannote call may not unwind on TERM alone.
         for _ in $(seq 1 "$KILL_GRACE_SECS"); do
