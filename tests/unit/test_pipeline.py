@@ -451,3 +451,138 @@ class TestPipelineIngest:
         assert "HTTP 403" in text
         # Other podcast still processed.
         assert "vid2" in text and "transcribed" in text
+
+
+class TestMultipleSources:
+    def _cfg_with_extra(self, tmp_path: Path) -> Config:
+        cfg = _config(tmp_path)
+        cfg.podcasts[0].extra_source_urls = ["https://x.test/streams"]
+        return cfg
+
+    def _ep(self, vid: str) -> EpisodeMetadata:
+        return EpisodeMetadata(
+            episode_id=vid, title=vid, channel_title="C",
+            published_at="2026-04-20", url=f"https://x.test/{vid}",
+        )
+
+    def test_enumerates_every_source(self, tmp_project: Path) -> None:
+        ledger = Ledger(tmp_project)
+        ledger.ensure_initialized()
+        downloader = MagicMock()
+        downloader.enumerate_playlist.side_effect = [
+            [self._ep("v1")], [self._ep("s1")],
+        ]
+        downloader.filter_new.return_value = []
+
+        Pipeline(
+            project_root=tmp_project,
+            config=self._cfg_with_extra(tmp_project),
+            ledger=ledger,
+            downloader=downloader,
+            transcriber_factory=lambda pod: MagicMock(),
+        ).ingest_all()
+
+        assert [c.args[0] for c in downloader.enumerate_playlist.call_args_list] == [
+            "https://x.test",
+            "https://x.test/streams",
+        ]
+        # Both tabs' episodes reach filter_new as one combined list.
+        assert [e.episode_id for e in downloader.filter_new.call_args.args[0]] == ["v1", "s1"]
+
+    def test_dedupes_ids_across_sources(self, tmp_project: Path) -> None:
+        """A video can appear on two tabs; it must not be enqueued twice."""
+        ledger = Ledger(tmp_project)
+        ledger.ensure_initialized()
+        downloader = MagicMock()
+        downloader.enumerate_playlist.side_effect = [
+            [self._ep("dup")], [self._ep("dup"), self._ep("s1")],
+        ]
+        downloader.filter_new.return_value = []
+
+        Pipeline(
+            project_root=tmp_project,
+            config=self._cfg_with_extra(tmp_project),
+            ledger=ledger,
+            downloader=downloader,
+            transcriber_factory=lambda pod: MagicMock(),
+        ).ingest_all()
+
+        assert [e.episode_id for e in downloader.filter_new.call_args.args[0]] == ["dup", "s1"]
+
+    def test_one_failing_source_does_not_lose_the_others(self, tmp_project: Path) -> None:
+        """Channels without a /streams tab raise; the /videos tab must still ingest."""
+        ledger = Ledger(tmp_project)
+        ledger.ensure_initialized()
+        downloader = MagicMock()
+        downloader.enumerate_playlist.side_effect = [
+            [self._ep("v1")], Exception("This channel does not have a streams tab"),
+        ]
+        downloader.filter_new.return_value = []
+
+        Pipeline(
+            project_root=tmp_project,
+            config=self._cfg_with_extra(tmp_project),
+            ledger=ledger,
+            downloader=downloader,
+            transcriber_factory=lambda pod: MagicMock(),
+        ).ingest_all()
+
+        assert [e.episode_id for e in downloader.filter_new.call_args.args[0]] == ["v1"]
+
+
+class TestEnumerationFailureIsNotExhaustion:
+    """A total enumeration failure must not look like an empty channel.
+
+    The backfill driver stops a whole batch early when it sees new_episodes=0,
+    reading it as "playlist exhausted". A DNS outage on 2026-09-02 made every
+    source raise, the per-source handler swallowed both, and an empty list
+    ended a 950-run job at run 204. Swallowing is right for *one* failed tab
+    and wrong when nothing succeeded.
+    """
+
+    def _cfg(self, tmp_path: Path, extra: list[str]) -> Config:
+        cfg = _config(tmp_path)
+        cfg.podcasts[0].extra_source_urls = extra
+        return cfg
+
+    def _pipeline(self, tmp_project: Path, cfg: Config, downloader: MagicMock) -> Pipeline:
+        ledger = Ledger(tmp_project)
+        ledger.ensure_initialized()
+        return Pipeline(
+            project_root=tmp_project, config=cfg, ledger=ledger,
+            downloader=downloader, transcriber_factory=lambda pod: MagicMock(),
+        )
+
+    def test_raises_when_every_source_fails(self, tmp_project: Path) -> None:
+        downloader = MagicMock()
+        downloader.enumerate_playlist.side_effect = [
+            Exception("Failed to resolve 'www.youtube.com'"),
+            Exception("Failed to resolve 'www.youtube.com'"),
+        ]
+        p = self._pipeline(tmp_project, self._cfg(tmp_project, ["https://x.test/streams"]), downloader)
+        with pytest.raises(RuntimeError, match="all .* sources failed"):
+            p._enumerate_sources(p.config.podcasts[0])
+
+    def test_single_source_failure_also_raises(self, tmp_project: Path) -> None:
+        downloader = MagicMock()
+        downloader.enumerate_playlist.side_effect = Exception("boom")
+        p = self._pipeline(tmp_project, self._cfg(tmp_project, []), downloader)
+        with pytest.raises(RuntimeError, match="all .* sources failed"):
+            p._enumerate_sources(p.config.podcasts[0])
+
+    def test_partial_failure_still_returns_survivors(self, tmp_project: Path) -> None:
+        ep = EpisodeMetadata(
+            episode_id="v1", title="t", channel_title="c",
+            published_at="2026-04-20", url="u",
+        )
+        downloader = MagicMock()
+        downloader.enumerate_playlist.side_effect = [[ep], Exception("no streams tab")]
+        p = self._pipeline(tmp_project, self._cfg(tmp_project, ["https://x.test/streams"]), downloader)
+        assert [e.episode_id for e in p._enumerate_sources(p.config.podcasts[0])] == ["v1"]
+
+    def test_genuinely_empty_channel_is_not_an_error(self, tmp_project: Path) -> None:
+        """Exhaustion is real and must stay distinguishable from breakage."""
+        downloader = MagicMock()
+        downloader.enumerate_playlist.side_effect = [[], []]
+        p = self._pipeline(tmp_project, self._cfg(tmp_project, ["https://x.test/streams"]), downloader)
+        assert p._enumerate_sources(p.config.podcasts[0]) == []

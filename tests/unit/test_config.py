@@ -120,3 +120,55 @@ class TestLoadConfig:
         assert len(cfg.podcasts) == 1
         assert cfg.podcasts[0].name == "Dan Koe"
         assert cfg.podcasts[0].source_url == "https://www.youtube.com/@DanKoeTalks/videos"
+
+
+class TestExtraSourceUrls:
+    """Streams and Shorts live on separate channel tabs from /videos.
+
+    They belong to the same creator -- same vault, same lens, same ledger
+    identity -- so they are extra sources on one entry rather than a second
+    creator that would fork the vault.
+    """
+
+    def test_defaults_to_empty(self, tmp_path: Path) -> None:
+        f = tmp_path / "cfg.yaml"
+        f.write_text(
+            "creators:\n"
+            "  - name: P\n"
+            "    source_url: https://x.test/videos\n"
+            "    lens: l\n"
+        )
+        cfg = load_config(f)
+        assert cfg.podcasts[0].extra_source_urls == []
+
+    def test_parses_list(self, tmp_path: Path) -> None:
+        f = tmp_path / "cfg.yaml"
+        f.write_text(
+            "creators:\n"
+            "  - name: P\n"
+            "    source_url: https://x.test/videos\n"
+            "    lens: l\n"
+            "    extra_source_urls:\n"
+            "      - https://x.test/streams\n"
+            "      - https://x.test/shorts\n"
+        )
+        cfg = load_config(f)
+        assert cfg.podcasts[0].extra_source_urls == [
+            "https://x.test/streams",
+            "https://x.test/shorts",
+        ]
+
+    def test_all_source_urls_puts_primary_first(self, tmp_path: Path) -> None:
+        f = tmp_path / "cfg.yaml"
+        f.write_text(
+            "creators:\n"
+            "  - name: P\n"
+            "    source_url: https://x.test/videos\n"
+            "    lens: l\n"
+            "    extra_source_urls: [https://x.test/streams]\n"
+        )
+        cfg = load_config(f)
+        assert cfg.podcasts[0].all_source_urls() == [
+            "https://x.test/videos",
+            "https://x.test/streams",
+        ]

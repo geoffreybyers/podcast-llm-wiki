@@ -27,6 +27,10 @@ class Defaults(BaseModel):
 class PodcastConfig(BaseModel):
     name: str
     source_url: str
+    # Streams and Shorts sit on separate channel tabs that /videos does not
+    # include. They are the same creator -- one vault, one lens, one ledger
+    # identity -- so they attach here rather than as a second creator entry.
+    extra_source_urls: list[str] = Field(default_factory=list)
     lens: str
     vault_path: Path
     max_backfill: int
@@ -36,12 +40,17 @@ class PodcastConfig(BaseModel):
     diarization_embedding: str
     initial_prompt: Optional[str] = None
 
+    def all_source_urls(self) -> list[str]:
+        """Every tab to enumerate, primary first."""
+        return [self.source_url, *self.extra_source_urls]
+
 
 class _RawPodcast(BaseModel):
     """Shape of a podcast entry as written in YAML before defaults are applied."""
 
     name: str
     source_url: str
+    extra_source_urls: list[str] = Field(default_factory=list)
     lens: str
     vault_path: Optional[Path] = None
     max_backfill: Optional[int] = None
@@ -82,6 +91,7 @@ def load_config(path: Path) -> Config:
             PodcastConfig(
                 name=rp.name,
                 source_url=rp.source_url,
+                extra_source_urls=list(rp.extra_source_urls),
                 lens=rp.lens,
                 vault_path=vault_path,
                 max_backfill=rp.max_backfill if rp.max_backfill is not None else defaults.max_backfill,

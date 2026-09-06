@@ -41,6 +41,49 @@ class Pipeline:
                 # Failure is per-podcast; don't block the others.
                 continue
 
+    def _enumerate_sources(self, pod: PodcastConfig) -> list:
+        """Enumerate every configured tab for `pod`, in order, de-duplicated.
+
+        A creator's Shorts and live streams live on channel tabs that /videos
+        omits, so one creator can have several sources. Two rules matter here:
+
+        - De-dupe by episode_id. YouTube lists some videos on more than one tab
+          (a premiered stream shows up under both /videos and /streams), and a
+          duplicate would be downloaded and transcribed twice.
+        - Never let one tab's failure lose the others. Channels without a
+          /streams tab raise outright ("This channel does not have a streams
+          tab"), and that must not block the /videos backlog behind it.
+        - But if *nothing* enumerated, raise rather than return empty. The
+          backfill driver treats new_episodes=0 as "playlist exhausted" and
+          ends the whole batch early. On 2026-09-02 a DNS outage made every
+          source raise; swallowing both produced an empty list that stopped a
+          950-run job at run 204 with ~780 episodes left. An empty result must
+          mean "nothing new upstream", never "we could not look".
+        """
+        seen: set[str] = set()
+        episodes: list = []
+        urls = pod.all_source_urls()
+        failures = 0
+        for url in urls:
+            log.info("enumerating playlist: %s (%s)", pod.name, url)
+            try:
+                found = self.downloader.enumerate_playlist(url)
+            except Exception:  # noqa: BLE001
+                log.exception("enumeration failed, skipping source: %s", url)
+                failures += 1
+                continue
+            for ep in found:
+                if ep.episode_id in seen:
+                    continue
+                seen.add(ep.episode_id)
+                episodes.append(ep)
+        if failures and failures == len(urls):
+            raise RuntimeError(
+                f"all {len(urls)} sources failed to enumerate for {pod.name}; "
+                "refusing to report an empty playlist"
+            )
+        return episodes
+
     def _ingest_podcast(self, pod: PodcastConfig) -> None:
         # Lazily build the transcriber once per podcast (loads heavy models).
         transcriber: Optional[Transcriber] = None
@@ -48,8 +91,7 @@ class Pipeline:
         if self.resume:
             transcriber = self._resume_podcast(pod, transcriber)
 
-        log.info("enumerating playlist: %s", pod.name)
-        episodes = self.downloader.enumerate_playlist(pod.source_url)
+        episodes = self._enumerate_sources(pod)
         new = self.downloader.filter_new(
             episodes,
             known_ids=self.ledger.known_episode_ids(),
