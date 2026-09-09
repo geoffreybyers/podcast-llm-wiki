@@ -14,12 +14,18 @@
 # Jordan B Peterson is deliberately absent: its 820 un-ingested entries are a
 # multi-day job and must be started explicitly, not swept up by this chain.
 #
-# Ceiling defaults to 80C rather than the guard's own 75C: the 2026-09-05 Gary
-# Vee run peaked at 74C with zero thermal-throttle samples, so 75C left one
-# degree of margin and would stop a long job over nothing.
+# Ceiling stays at the guard's conservative 75C. An 80C ceiling was tried on
+# 2026-09-08 and tripped at 81C after 27 minutes, three episodes in. That was a
+# real climb, not a bad sample: at an identical power band (190-215W) GPU1 ran
+# 71.0C avg / 78C peak that evening against 67.5C / 73C on 2026-09-05, and GPU0
+# -- a different card doing only desktop work -- was 5C warmer too. Both cards
+# warming at the same load points at ambient or case airflow, not at one card's
+# loop. Until that is resolved the equilibrium sits near 78-80C, so no ceiling
+# in this range lets a long job run; fix the heat or lower the power cap rather
+# than raising this number. Override deliberately with CEILING=... if needed.
 set -uo pipefail
 cd "$(dirname "${BASH_SOURCE[0]}")/.." || exit 1
-CEILING="${CEILING:-80}"
+CEILING="${CEILING:-75}"
 
 run() {
     echo "[$(date +%H:%M:%S)] === $1 ($2 runs, ceiling ${CEILING}C)"
